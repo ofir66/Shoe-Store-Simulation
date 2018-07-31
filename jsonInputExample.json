@@ -1,0 +1,26 @@
+{
+  "initialStorage": [
+	{"shoeType": "blue-sneakers", "amount": 10}, 
+	{"shoeType": "uncomfortable-high-heels", "amount": 5}, 
+	{"shoeType": "green-flip-flops", "amount": 7}
+  ],
+  "services": {
+    "time": {"speed": 200, "duration": 60},
+    "manager": {
+      "discountSchedule": [
+      {"shoeType": "blue-sneakers","amount": 1, "tick": 7}
+      ]
+    },
+    "factories": 2,
+    "sellers": 3,
+    "customers": [
+      {"name": "Bracha", "wishList": ["blue-sneakers"], "purchaseSchedule": []},
+      {"name": "Nurith", "wishList": ["uncomfortable-high-heels"],"purchaseSchedule": []},
+      {"name": "Group-Buyers1","wishList": ["ugly-sandals", "space-flip-flops"], "purchaseSchedule": [
+		{"shoeType": "work-shoes", "tick": 12},  
+		{"shoeType": "work-shoes","tick": 12}
+		]
+      }
+    ]
+  }
+}
