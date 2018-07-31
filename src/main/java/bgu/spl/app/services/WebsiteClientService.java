@@ -104,7 +104,7 @@ public class WebsiteClientService extends MicroService{
             this.fDuration=tickBroadCast.getDuration(); // and duration
             if (this.fCurrentTick>this.fDuration){
                 this.terminate();
-                LOGGER.warning(this.getName()+ " terminates");
+                LOGGER.info(this.getName()+ " terminates");
                 this.fLatchObjectForEnd.countDown();
             }    
             else{
@@ -133,18 +133,18 @@ public class WebsiteClientService extends MicroService{
                             this.fWishList.remove(wantedShoe); // and also remove it from the wish list, if the shoe exist there
                             LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ wantedShoe);
                             if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of his shopping list are now empty
-                                LOGGER.warning("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has finished his shopping. now terminates");
+                                LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has finished his shopping. now terminates");
                                 this.terminate(); // then the client has finished his shopping
                                 this.fLatchObjectForEnd.countDown();
                             }
                         }
                         else
-                            LOGGER.warning("tick "+ this.fCurrentTick+ ": purchase of: "+ wantedShoe+ " by "+this.getName()+" was not accepted");
+                            LOGGER.info("tick "+ this.fCurrentTick+ ": purchase of: "+ wantedShoe+ " by "+this.getName()+" was not accepted");
                     });
                     if (success)
                         LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" sent a request for: " +wantedShoe+" and wait for its completion");
                     else
-                        LOGGER.warning("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" sent a request for: " +wantedShoe+"  but there was no one to handle it");
+                        LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" sent a request for: " +wantedShoe+"  but there was no one to handle it");
                 }
     }
      
@@ -173,20 +173,20 @@ public class WebsiteClientService extends MicroService{
                         this.fWishList.remove(discountedShoe); // we remove it from the client wish list
                         LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ discountedShoe);
                         if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of it's shopping list are now empty
-                            LOGGER.warning("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" has finished his shopping. now terminates");
+                            LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" has finished his shopping. now terminates");
                             this.terminate(); // then the client has finished his shopping
                             this.fLatchObjectForEnd.countDown();
                         }
                     }
                     else{
-                        LOGGER.warning("tick "+ this.fCurrentTick+ ": "+"purchase of: "+ discountedShoe+ " by "+this.getName()+" was not accepted");
+                        LOGGER.info("tick "+ this.fCurrentTick+ ": "+"purchase of: "+ discountedShoe+ " by "+this.getName()+" was not accepted");
                         this.fRequestedFromWishList.remove(discountedShoe); // if request fails, we will remove the shoe from requested list, because the client might have a chance to buy it in discount at future
                     }
                 });
                 if (success)
                     LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" sent a request for: " +discountedShoe+"  and wait for its completion");
                 else{
-                    LOGGER.warning("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" sent a request for: " +discountedShoe+"  but there was no one to handle it");
+                    LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" sent a request for: " +discountedShoe+"  but there was no one to handle it");
                     this.fRequestedFromWishList.remove(discountedShoe); // if request fails, we will remove the shoe from requested list, because the client might have a chance to buy it in discount at future
                 }     
             }

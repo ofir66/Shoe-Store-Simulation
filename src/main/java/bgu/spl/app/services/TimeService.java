@@ -106,7 +106,7 @@ public class TimeService extends MicroService{
                 fCurrentTime++;
                 if (fCurrentTime>fDuration+1){
                 	terminate();
-                    LOGGER.warning(getName()+ " terminates");
+                    LOGGER.info(getName()+ " terminates");
                     sendBroadcast(new TimeServiceClock());
                     fTimer.cancel();
                     this.cancel();

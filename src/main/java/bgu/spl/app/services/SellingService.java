@@ -99,7 +99,7 @@ public class SellingService extends MicroService{
             this.fDuration=tickBroadCast.getDuration();
             if (this.fCurrentTick>this.fDuration){
                 this.terminate();
-                LOGGER.warning(this.getName()+ " terminates");
+                LOGGER.info(this.getName()+ " terminates");
                 this.fLatchObjectForEnd.countDown();
             }    
         });
@@ -130,7 +130,7 @@ public class SellingService extends MicroService{
                 complete(req,receipt);
             }
             if (takeResult.compareTo("NOT_IN_STOCK")==0){ // if we didn't find this shoe, and the customer didn't care about discount, we will send a restock request to the manager- and then complete the request
-                LOGGER.warning("tick "+ this.fCurrentTick+ ": "+"No shoes from kind: "+wantedShoe+" left in stock for "+ req.getSenderName()+ ". calling for restock. you will receive a receipt only if the restock request succeed");
+                LOGGER.info("tick "+ this.fCurrentTick+ ": "+"No shoes from kind: "+wantedShoe+" left in stock for "+ req.getSenderName()+ ". calling for restock. you will receive a receipt only if the restock request succeed");
                 RestockRequest restockRequest= new RestockRequest(this.fId, wantedShoe, req.getAmountWanted(), req);
                 boolean success=this.sendRequest(restockRequest, v -> { // we will now define that is the wanted result of our restock request
                         if (!v) // if the manager returned "false" to our restock request
@@ -142,7 +142,7 @@ public class SellingService extends MicroService{
                         }
                 });
                 if (!success){
-                	LOGGER.warning("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+restockRequest.getClass().getSimpleName());
+                	LOGGER.info("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+restockRequest.getClass().getSimpleName());
                     complete(req,null);
                 }
             }

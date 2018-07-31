@@ -129,7 +129,7 @@ public class ManagementService extends MicroService{
         this.fDuration=tickBroadCast.getDuration(); // and duration
         if (this.fCurrentTick>this.fDuration){ // if got duration=> terminates
             this.terminate();
-            LOGGER.warning(this.getName()+ " terminates");
+            LOGGER.info(this.getName()+ " terminates");
             this.fLatchObjectForEnd.countDown();
         }    
         else{
@@ -222,7 +222,7 @@ public class ManagementService extends MicroService{
 			}	                 
 		});
 		if (!success){
-			LOGGER.warning("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+ manufacturingOrderRequest.getClass().getSimpleName());
+			LOGGER.info("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+ manufacturingOrderRequest.getClass().getSimpleName());
 			this.restockFails(requestedShoe, restockOrder, manufacturingOrderRequest);
 		}
 	}

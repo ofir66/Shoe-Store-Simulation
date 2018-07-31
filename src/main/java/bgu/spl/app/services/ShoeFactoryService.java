@@ -97,7 +97,7 @@ public class ShoeFactoryService extends MicroService{
         this.fDuration=tickBroadCast.getDuration();
         if (this.fCurrentTick>this.fDuration){
             this.terminate();
-            LOGGER.warning(this.getName()+ " terminates");
+            LOGGER.info(this.getName()+ " terminates");
             this.fLatchObjectForEnd.countDown();
         }    
         else{

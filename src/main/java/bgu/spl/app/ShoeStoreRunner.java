@@ -74,7 +74,7 @@ public class ShoeStoreRunner {
 		try {
 			jreader = new JsonReader(new FileReader(args[0]));
 		} catch (FileNotFoundException e1) {
-			LOGGER.warning("File not found.");
+			LOGGER.severe("File not found.");
         	LOGGER.severe("SYSTEM IS SHUTTING DOWN!");
             System.exit(1);
 		}
