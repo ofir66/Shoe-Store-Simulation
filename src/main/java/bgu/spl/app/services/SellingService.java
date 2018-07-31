@@ -83,8 +83,10 @@ public class SellingService extends MicroService{
      
     @Override
     protected void initialize() {
-    	try {
-			FileHandler handler = new FileHandler("Log/SellingService"+fId+".txt");
+    	FileHandler handler;
+		
+		try {
+			handler = new FileHandler("Log/SellingService"+fId+".txt");
 			handler.setFormatter(new SimpleFormatter());
 			LOGGER.addHandler(handler);
 		} catch (SecurityException e1) {
@@ -112,45 +114,67 @@ public class SellingService extends MicroService{
     //Auxiliary method. will subscribe the service to PurchaseOrderRequest messages, and define how to handle them on callBack
     private void handlePurchaseOrderRequest(){
         this.subscribeRequest(PurchaseOrderRequest.class, req -> { // now we will define how selling-service handle this request
-            LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " will try to take care of "+ req.getSenderName()+ " request of "+ req.getShoeRequested());
-            String wantedShoe=req.getShoeRequested(); // we will save the wanted shoe
-            boolean discount=req.getDiscount(); // check if the customer wanted to buy it only at discount
-            String takeResult=this.fStore.take(wantedShoe, discount).name(); // and try to find it in the store
+        	String wantedShoe;
+        	boolean discount;
+        	String takeResult;
+        	
+        	LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " will try to take care of "+ req.getSenderName()+ " request of "+ req.getShoeRequested());
+            wantedShoe=req.getShoeRequested(); // we will save the wanted shoe
+            discount=req.getDiscount(); // check if the customer wanted to buy it only at discount
+            takeResult=this.fStore.take(wantedShoe, discount).name(); // and try to find it in the store
+            
             if (takeResult.compareTo("REGULAR_PRICE")==0){ // if we found this shoe, and the customer didn't care about discount
-                Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), false, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
-                this.fStore.file(receipt);
-                complete(req,receipt);
+                handleRegularPriceRequest(req);
             }
             if (takeResult.compareTo("DISCOUNTED_PRICE")==0){ // if we found this shoe on discounted price (regardless to the customer wish for discount)
-                Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), true, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
-                // note: if a client bought a shoe with discount, we will mention it by two prints:
-                // that he bought it with discount, and successfully bought it (in complete method)
-                LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+req.getSenderName()+ " will buy one "+ req.getShoeRequested()+ " with discount");
-                this.fStore.file(receipt);
-                complete(req,receipt);
+                handleDiscountPriceRequest(req);
             }
             if (takeResult.compareTo("NOT_IN_STOCK")==0){ // if we didn't find this shoe, and the customer didn't care about discount, we will send a restock request to the manager- and then complete the request
-                LOGGER.info("tick "+ this.fCurrentTick+ ": "+"No shoes from kind: "+wantedShoe+" left in stock for "+ req.getSenderName()+ ". calling for restock. you will receive a receipt only if the restock request succeed");
-                RestockRequest restockRequest= new RestockRequest(this.fId, wantedShoe, req.getAmountWanted(), req);
-                boolean success=this.sendRequest(restockRequest, v -> { // we will now define that is the wanted result of our restock request
-                        if (!v) // if the manager returned "false" to our restock request
-                            complete(req,null); // we will return the result "null" tp the customer
-                        else{ // if the restock succeed
-                            Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), false, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
-                            this.fStore.file(receipt);
-                            complete(req,receipt);
-                        }
-                });
-                if (!success){
-                	LOGGER.info("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+restockRequest.getClass().getSimpleName());
-                    complete(req,null);
-                }
+            	handleNotInStockRequest(req, wantedShoe);
             }
             if (takeResult.compareTo("NOT_ON_DISCOUNT")==0){
                 complete(req,null);
             }
         }); 
     }
+
+	private void handleNotInStockRequest(PurchaseOrderRequest req, String wantedShoe) {
+		RestockRequest restockRequest;
+		boolean success;
+		
+		LOGGER.info("tick "+ this.fCurrentTick+ ": "+"No shoes from kind: "+wantedShoe+" left in stock for "+ req.getSenderName()+ ". calling for restock. you will receive a receipt only if the restock request succeed");
+		restockRequest= new RestockRequest(this.fId, wantedShoe, req.getAmountWanted(), req);
+		success=this.sendRequest(restockRequest, v -> { // we will now define that is the wanted result of our restock request
+		        if (!v) // if the manager returned "false" to our restock request
+		            complete(req,null); // we will return the result "null" tp the customer
+		        else{ // if the restock succeed
+		            handleRegularPriceRequest(req);
+		        }
+		});
+		if (!success){
+			LOGGER.info("tick "+ this.fCurrentTick+ ": there is no one to handle "+this.getName()+" request of type: "+restockRequest.getClass().getSimpleName());
+		    complete(req,null);
+		}
+	}
+
+	private void handleDiscountPriceRequest(PurchaseOrderRequest req) {
+		Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), 
+				true, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
+		
+		// note: if a client bought a shoe with discount, we will mention it by two prints:
+		// that he bought it with discount, and successfully bought it (in complete method)
+		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+req.getSenderName()+ " will buy one "+ req.getShoeRequested()+ " with discount");
+		this.fStore.file(receipt);
+		complete(req,receipt);
+	}
+
+	private void handleRegularPriceRequest(PurchaseOrderRequest req) {
+		Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), 
+				false, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
+		
+		this.fStore.file(receipt);
+		complete(req,receipt);
+	}
      
      
 }
