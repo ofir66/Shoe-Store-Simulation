@@ -82,8 +82,10 @@ public class TimeService extends MicroService{
      */
      
     protected void initialize(){
-    	try {
-			FileHandler handler = new FileHandler("Log/TimeService.txt");
+    	FileHandler handler;
+		
+		try {
+			handler = new FileHandler("Log/TimeService.txt");
 			handler.setFormatter(new SimpleFormatter());
 			LOGGER.addHandler(handler);
 		} catch (SecurityException e1) {
@@ -98,12 +100,22 @@ public class TimeService extends MicroService{
         catch(InterruptedException e){
             e.printStackTrace();
         }
-        // when current time<=duration => sends tick broadcast to services
+		
+        scheduleTimerTask(); 
+		
+        // subscribing to the message which indicates that all the services terminates, and now the TimeService can terminate as well
+        this.subscribeBroadcast(TimeServiceClock.class, timeServiceClock -> {}); 
+    }
+
+	private void scheduleTimerTask() {
+		// when current time<=duration => sends tick broadcast to services
         // when current time= duration+1 => it is the last tick that will be sent, and when the services get it, they will immediately terminate. 
         // the TimeService will terminate right after them, sending himself the garbage message TimeServiceClock for getting out of awaitMessage method at MicroService Class
         this.fTimer.schedule(new TimerTask(){ 
             public void run(){
-                fCurrentTime++;
+                TickBroadcast tickBroadcast;
+				
+				fCurrentTime++;
                 if (fCurrentTime>fDuration+1){
                 	terminate();
                     LOGGER.info(getName()+ " terminates");
@@ -113,13 +125,11 @@ public class TimeService extends MicroService{
                     fLatchObjectForEnd.countDown();
                 }
                 else{
-                    TickBroadcast tickBroadcast=new TickBroadcast(getName(), fCurrentTime, fDuration);
+                    tickBroadcast=new TickBroadcast(getName(), fCurrentTime, fDuration);
                     sendBroadcast(tickBroadcast);
                 }
             }
-        }, 0, this.fSpeed); 
-        // subscribing to the message which indicates that all the services terminates, and now the TimeService can terminate as well
-        this.subscribeBroadcast(TimeServiceClock.class, timeServiceClock -> {}); 
-    }
+        }, 0, this.fSpeed);
+	}
      
 }
