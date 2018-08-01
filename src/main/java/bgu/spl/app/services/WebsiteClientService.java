@@ -88,8 +88,10 @@ public class WebsiteClientService extends MicroService{
      * He is also trying to buy items from his purchase list
      */
     protected void initialize(){
-    	try {
-			FileHandler handler = new FileHandler("Log/WebsiteClientService"+getName()+".txt");
+    	FileHandler handler;
+		
+		try {
+			handler = new FileHandler("Log/WebsiteClientService"+getName()+".txt");
 			handler.setFormatter(new SimpleFormatter());
 			LOGGER.addHandler(handler);
 		} catch (SecurityException e1) {
@@ -97,6 +99,7 @@ public class WebsiteClientService extends MicroService{
 		} catch (IOException e1) {
 			LOGGER.severe(e1.getMessage());
 		}
+		
         LOGGER.info(this.getName() +" started");
         // subscribing to TickBroadcast messages
         this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> { // this is how the client handles TickBroadcast message
@@ -122,21 +125,18 @@ public class WebsiteClientService extends MicroService{
         // trying to buy items on PurchaseSchedule list.
                 ConcurrentLinkedQueue<PurchaseSchedule> itemsToPurchaseAtCurrentTick= findPurchasesAtCurrentTick(); // will find all the items to put in this current tick
                 Iterator<PurchaseSchedule> i= itemsToPurchaseAtCurrentTick.iterator();
+				PurchaseOrderRequest purchaseOrderRequest;
+				boolean success;
+				
                 while (i.hasNext()){
                     PurchaseSchedule temp=i.next();
-                    PurchaseOrderRequest purchaseOrderRequest= new PurchaseOrderRequest(this.getName(), temp.getShoeType(), false, this.fCurrentTick, 1);
+                    purchaseOrderRequest= new PurchaseOrderRequest(this.getName(), temp.getShoeType(), false, this.fCurrentTick, 1);
+					String wantedShoe= purchaseOrderRequest.getShoeRequested();
+					
                     LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" will try to buy this item from his purchase list: " +temp.getShoeType());
-                    String wantedShoe= purchaseOrderRequest.getShoeRequested();
-                    boolean success=this.sendRequest(purchaseOrderRequest, Receipt -> {
+                    success=this.sendRequest(purchaseOrderRequest, Receipt -> {
                         if (Receipt!=null){ // if the item was successfully purchased
-                            this.fPurchaseSchedule.remove(temp); // we remove it from the client purchase list
-                            this.fWishList.remove(wantedShoe); // and also remove it from the wish list, if the shoe exist there
-                            LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ wantedShoe);
-                            if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of his shopping list are now empty
-                                LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has finished his shopping. now terminates");
-                                this.terminate(); // then the client has finished his shopping
-                                this.fLatchObjectForEnd.countDown();
-                            }
+                            handlePurchasedItem(temp, wantedShoe);
                         }
                         else
                             LOGGER.info("tick "+ this.fCurrentTick+ ": purchase of: "+ wantedShoe+ " by "+this.getName()+" was not accepted");
@@ -147,6 +147,17 @@ public class WebsiteClientService extends MicroService{
                         LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" sent a request for: " +wantedShoe+"  but there was no one to handle it");
                 }
     }
+
+	private void handlePurchasedItem(PurchaseSchedule purchaseSchedule, String wantedShoe) {
+		this.fPurchaseSchedule.remove(purchaseSchedule); // we remove it from the client purchase list
+		this.fWishList.remove(wantedShoe); // and also remove it from the wish list, if the shoe exist there
+		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ wantedShoe);
+		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of his shopping list are now empty
+		    LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has finished his shopping. now terminates");
+		    this.terminate(); // then the client has finished his shopping
+		    this.fLatchObjectForEnd.countDown();
+		}
+	}
      
     // Auxiliary method. 
     private ConcurrentLinkedQueue<PurchaseSchedule> findPurchasesAtCurrentTick(){
@@ -160,23 +171,19 @@ public class WebsiteClientService extends MicroService{
      
     // Auxiliary method. subscribing to newDiscountBroadcast and defining how to handle it on callBack
     private void handleNewDiscountBroadcast(){
-        // subscribing the client to NewDiscountBroadcast (will try to buy items on wish list, if get's a discount on some item there)
+    	// subscribing the client to NewDiscountBroadcast (will try to buy items on wish list, if get's a discount on some item there)
         this.subscribeBroadcast(NewDiscountBroadcast.class, discountBroadcast -> { //this is how the client handle a NewDiscountBroadcast message in his queue
             String discountedShoe=discountBroadcast.getshoeType();
+            
             if (this.fWishList.contains(discountedShoe) && !this.fRequestedFromWishList.contains(discountedShoe) && discountBroadcast.getAomunt()>0){ // if the message declared on a shoe at discount, it appears on this client wish list and the client didn't asked that before
                 PurchaseOrderRequest purchaseOrderRequest = new PurchaseOrderRequest(this.getName(), discountedShoe, true, this.fCurrentTick, 1); 
                 // the client will try to buy this item immediately
                 this.fRequestedFromWishList.add(discountedShoe);
                 LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" will try to buy this item from his wish list: " +discountedShoe);
+                
                 boolean success=this.sendRequest(purchaseOrderRequest, Receipt -> { // this is what the client expects to get
                     if (Receipt!=null){ // if the item was successfully purchased
-                        this.fWishList.remove(discountedShoe); // we remove it from the client wish list
-                        LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ discountedShoe);
-                        if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of it's shopping list are now empty
-                            LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" has finished his shopping. now terminates");
-                            this.terminate(); // then the client has finished his shopping
-                            this.fLatchObjectForEnd.countDown();
-                        }
+                        handlePurchasedAtDiscountItem(discountedShoe);
                     }
                     else{
                         LOGGER.info("tick "+ this.fCurrentTick+ ": "+"purchase of: "+ discountedShoe+ " by "+this.getName()+" was not accepted");
@@ -192,5 +199,15 @@ public class WebsiteClientService extends MicroService{
             }
         });
     }
+
+	private void handlePurchasedAtDiscountItem(String discountedShoe) {
+		this.fWishList.remove(discountedShoe); // we remove it from the client wish list
+		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ discountedShoe);
+		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of it's shopping list are now empty
+		    LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" has finished his shopping. now terminates");
+		    this.terminate(); // then the client has finished his shopping
+		    this.fLatchObjectForEnd.countDown();
+		}
+	}
      
  }
