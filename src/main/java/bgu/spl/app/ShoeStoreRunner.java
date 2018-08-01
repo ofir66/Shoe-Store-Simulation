@@ -58,118 +58,25 @@ public class ShoeStoreRunner {
 	private final static Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
     public static void main(String[] args) {
+    	JsonReader jreader;
+    	JsonParser jparser = new JsonParser();
+    	JsonElement element;
+    	JsonObject jobject;
+    	Store store = Store.getInstance();
+    	CountDownLatch latchForEnding;
+    	
     	(new File("Log")).mkdir(); // Creates a Log folder if doesn't exist
     	for(File file: new File("Log").listFiles()) file.delete(); // cleans the Log folder so we will only have the latest log files after the program runs
     	System.setProperty("java.util.logging.SimpleFormatter.format","%4$s: %5$s [%1$tc]%n"); // reorders the log lines to make it easier on the eye
-    	try {
-			FileHandler handler = new FileHandler("Log/ShoeStoreRunner.txt");
-			handler.setFormatter(new SimpleFormatter());
-			LOGGER.addHandler(handler);
-		} catch (SecurityException e1) {
-			LOGGER.severe(e1.getLocalizedMessage());
-		} catch (IOException e1) {
-			LOGGER.severe(e1.getLocalizedMessage());
-		}
-    	JsonReader jreader=null;
-		try {
-			jreader = new JsonReader(new FileReader(args[0]));
-		} catch (FileNotFoundException e1) {
-			LOGGER.severe("File not found.");
-        	LOGGER.severe("SYSTEM IS SHUTTING DOWN!");
-            System.exit(1);
-		}
-        HashMap<String,Integer> initialStorage = new HashMap<String,Integer>();
-        JsonParser jparser = new JsonParser();
-        JsonElement element = jparser.parse(jreader);
-        int numOfServices=0;//counts the manager, number of factories, number of sellers and number of customers
-        int numOfCustomers=0;
-        Store store = Store.getInstance();
+    	
+    	initFileHandler();
+    	jreader = openJsonReader(args);
+        element = jparser.parse(jreader);
+        
         if (element.isJsonObject()){
-            JsonObject jobject = element.getAsJsonObject();
-            JsonArray shoes = jobject.get("initialStorage").getAsJsonArray();
-            for (JsonElement shoe : shoes){ // reading the initial storage and creating a map of shoes
-                String type = (shoe.getAsJsonObject().get("shoeType").getAsString());
-                int amount = (shoe.getAsJsonObject().get("amount").getAsInt());
-                initialStorage.put(type, amount);
-            }
-            ShoeStorageInfo[] initialStorageArray = new ShoeStorageInfo[initialStorage.size()];
-            int j=0;
-            for (String s: initialStorage.keySet()){
-                initialStorageArray[j]= new ShoeStorageInfo(s, initialStorage.get(s),0);
-                ++j;
-            }
-            store.load(initialStorageArray);
-            JsonObject services = jobject.get("services").getAsJsonObject(); // from now on we read from services!!!
-            int speed = 0;
-            int duration = 0;
-            if (services.get("time")==null)
-                LOGGER.severe("THERE IS NO TIME!");
-            else{
-                JsonObject time = services.get("time").getAsJsonObject();
-                speed = time.get("speed").getAsInt();
-                duration = time.get("duration").getAsInt();
-            }
-            List<DiscountSchedule> dischedule = new ArrayList<DiscountSchedule>();
-            if (services.get("manager")==null)
-                LOGGER.severe("THERE IS NO MANAGER!");
-            else{
-                numOfServices = numOfServices + 1; //manager
-                JsonObject manager = services.get("manager").getAsJsonObject();
-                JsonArray discounts = manager.get("discountSchedule").getAsJsonArray();
-                for (JsonElement discount : discounts){
-                    JsonObject jdiscount = discount.getAsJsonObject();
-                    dischedule.add(new DiscountSchedule(jdiscount.get("shoeType").getAsString(),jdiscount.get("tick").getAsInt(),jdiscount.get("amount").getAsInt()));
-                }
-            }
-            int factories = services.get("factories").getAsInt();
-            numOfServices = numOfServices + factories;
-            int sellers = services.get("sellers").getAsInt();
-            numOfServices = numOfServices + sellers;
-            List<WebsiteClientService> customers = new ArrayList<WebsiteClientService>();
-            JsonArray jcustomers = services.get("customers").getAsJsonArray();
-            numOfCustomers = jcustomers.size();
-            numOfServices = numOfServices+numOfCustomers;
-            CountDownLatch latchForInit = new CountDownLatch(numOfServices);
-            CountDownLatch latchForEnding = new CountDownLatch(numOfServices+1); // * we assume that we have timer
-            for (JsonElement customer : jcustomers){
-                JsonObject jcustomer = customer.getAsJsonObject();
-                List<PurchaseSchedule> purchaseList = new ArrayList<PurchaseSchedule>();
-                JsonArray purchaseschedule = jcustomer.get("purchaseSchedule").getAsJsonArray();
-                for (JsonElement purchase : purchaseschedule){
-                    JsonObject jpurchase = purchase.getAsJsonObject();
-                    PurchaseSchedule pschedule = new PurchaseSchedule(jpurchase.get("shoeType").getAsString(),jpurchase.get("tick").getAsInt());
-                    purchaseList.add(pschedule);
-                }
-                JsonArray jwishList = jcustomer.get("wishList").getAsJsonArray();
-                Set<String> wishList = new LinkedHashSet<String>();
-                for (JsonElement wish : jwishList){
-                    wishList.add(wish.getAsString());
-                }
-                customers.add(new WebsiteClientService(jcustomer.get("name").getAsString(),purchaseList,wishList,latchForInit, latchForEnding));
-            }
-            MicroService timer= new TimeService(speed,duration,latchForInit, latchForEnding);
-            MicroService manager= new ManagementService(dischedule,latchForInit, latchForEnding);
-            List<MicroService> listOfSellers = new ArrayList<MicroService>();
-            for (int i = 0; i < sellers; i++){
-                listOfSellers.add(new SellingService("Seller "+ (i+1), i+1, latchForInit, latchForEnding));
-            }
-            Thread timerT = new Thread(timer);
-            timerT.start();
-            Thread managerT= new Thread(manager);
-            for (int i = 0; i < customers.size(); i++){
-                Thread customerT= new Thread(customers.get(i));
-                customerT.start();
-            }
-            for (int i = 0; i < listOfSellers.size(); i++){
-                Thread sellerT= new Thread(listOfSellers.get(i));
-                sellerT.start();
-            }
-            managerT.start();
-            for (int i = 0; i < factories; i++){
-                Thread factory = new Thread(new ShoeFactoryService("Factory "+ (i+1),latchForInit, latchForEnding));
-                factory.start();
-            }
-            
+            jobject = element.getAsJsonObject();
+            parseInitialStorage(store, jobject);
+            latchForEnding = parseServices(jobject);
             try{
             	latchForEnding.await();
             }
@@ -179,4 +86,162 @@ public class ShoeStoreRunner {
             store.print();
         }
     }
+
+	private static void initFileHandler() {
+		FileHandler handler;
+		
+		try {
+			handler = new FileHandler("Log/ShoeStoreRunner.txt");
+			handler.setFormatter(new SimpleFormatter());
+			LOGGER.addHandler(handler);
+		} catch (SecurityException e1) {
+			LOGGER.severe(e1.getLocalizedMessage());
+		} catch (IOException e1) {
+			LOGGER.severe(e1.getLocalizedMessage());
+		}
+	}
+
+	private static JsonReader openJsonReader(String[] args) {
+		JsonReader jreader=null;
+		
+		try {
+			jreader = new JsonReader(new FileReader(args[0]));
+		} catch (FileNotFoundException e1) {
+			LOGGER.severe("File not found. \nSYSTEM IS SHUTTING DOWN!");
+            System.exit(1);
+		}
+		return jreader;
+	}
+
+	private static CountDownLatch parseServices(JsonObject jobject) {
+		JsonObject services = jobject.get("services").getAsJsonObject(); // from now on we read from services!!!
+		JsonObject jTime = services.get("time").getAsJsonObject();
+		JsonObject jManager = services.get("manager").getAsJsonObject();
+		JsonArray jcustomers = services.get("customers").getAsJsonArray();
+		
+		int speed = jTime.get("speed").getAsInt();
+		int duration = jTime.get("duration").getAsInt();
+		int factories = services.get("factories").getAsInt();
+		int sellers = services.get("sellers").getAsInt();
+		int numOfServices = 1 + factories + sellers + jcustomers.size(); // 1 is for the manager
+		
+		CountDownLatch latchForInit = new CountDownLatch(numOfServices);
+		CountDownLatch latchForEnding = new CountDownLatch(numOfServices+1); // +1 for the timer
+		
+		List<DiscountSchedule> dischedule = new ArrayList<DiscountSchedule>();
+		List<WebsiteClientService> customers = new ArrayList<WebsiteClientService>();
+		List<MicroService> listOfSellers = parseSellers(sellers, latchForInit, latchForEnding);
+		
+		MicroService timer= new TimeService(speed,duration,latchForInit, latchForEnding);
+		MicroService manager;
+		
+	    parseDiscounts(dischedule, jManager);
+		parseCustomers(customers, jcustomers, latchForInit, latchForEnding);
+		
+		manager= new ManagementService(dischedule,latchForInit, latchForEnding);
+		
+		startStoreSimulation(factories, customers, latchForInit, latchForEnding, timer, manager, listOfSellers);
+		
+		return latchForEnding;
+	}
+
+	private static List<MicroService> parseSellers(int sellers, CountDownLatch latchForInit, CountDownLatch latchForEnding) {
+		List<MicroService> listOfSellers = new ArrayList<MicroService>();
+		
+		for (int i = 0; i < sellers; i++){
+		    listOfSellers.add(new SellingService("Seller "+ (i+1), i+1, latchForInit, latchForEnding));
+		}
+		return listOfSellers;
+	}
+
+	private static void parseDiscounts(List<DiscountSchedule> dischedule, JsonObject manager) {
+		JsonArray discounts = manager.get("discountSchedule").getAsJsonArray();
+		JsonObject jdiscount;
+		
+		for (JsonElement discount : discounts){
+		    jdiscount = discount.getAsJsonObject();
+		    dischedule.add(new DiscountSchedule(jdiscount.get("shoeType").getAsString(),jdiscount.get("tick").getAsInt(),jdiscount.get("amount").getAsInt()));
+		}
+	}
+
+	private static void startStoreSimulation(int factories, List<WebsiteClientService> customers,
+			CountDownLatch latchForInit, CountDownLatch latchForEnding, MicroService timer, MicroService manager,
+			List<MicroService> listOfSellers) {
+		
+		Thread timerT = new Thread(timer);
+		Thread managerT= new Thread(manager);
+		Thread customerT;
+		Thread sellerT;
+		Thread factoryT;
+		
+		timerT.start();
+		
+		for (int i = 0; i < customers.size(); i++){
+		    customerT= new Thread(customers.get(i));
+		    customerT.start();
+		}
+		
+		for (int i = 0; i < listOfSellers.size(); i++){
+		    sellerT= new Thread(listOfSellers.get(i));
+		    sellerT.start();
+		}
+		
+		managerT.start();
+		
+		for (int i = 0; i < factories; i++){
+		    factoryT = new Thread(new ShoeFactoryService("Factory "+ (i+1),latchForInit, latchForEnding));
+		    factoryT.start();
+		}
+	}
+
+	private static void parseCustomers(List<WebsiteClientService> customers, JsonArray jcustomers,
+			CountDownLatch latchForInit, CountDownLatch latchForEnding) {
+		
+		JsonObject jcustomer;
+		JsonObject jpurchase;
+		JsonArray purchaseschedule;
+		JsonArray jwishList;
+		List<PurchaseSchedule> purchaseList;
+		PurchaseSchedule pschedule;
+		Set<String> wishList;
+		
+		for (JsonElement customer : jcustomers){
+		    jcustomer = customer.getAsJsonObject();
+		    purchaseList = new ArrayList<PurchaseSchedule>();
+		    purchaseschedule = jcustomer.get("purchaseSchedule").getAsJsonArray();
+		    for (JsonElement purchase : purchaseschedule){
+		        jpurchase = purchase.getAsJsonObject();
+		        pschedule = new PurchaseSchedule(jpurchase.get("shoeType").getAsString(),jpurchase.get("tick").getAsInt());
+		        purchaseList.add(pschedule);
+		    }
+		    jwishList = jcustomer.get("wishList").getAsJsonArray();
+		    wishList = new LinkedHashSet<String>();
+		    for (JsonElement wish : jwishList){
+		        wishList.add(wish.getAsString());
+		    }
+		    customers.add(new WebsiteClientService(jcustomer.get("name").getAsString(),purchaseList,wishList,latchForInit, latchForEnding));
+		}
+	}
+
+	private static void parseInitialStorage(Store store, JsonObject jobject) {
+		HashMap<String,Integer> initialStorage = new HashMap<String,Integer>();
+		JsonArray shoes = jobject.get("initialStorage").getAsJsonArray();
+		String type;
+		int amount;
+		int j=0;
+		ShoeStorageInfo[] initialStorageArray;
+		
+		for (JsonElement shoe : shoes){ // reading the initial storage and creating a map of shoes
+		    type = (shoe.getAsJsonObject().get("shoeType").getAsString());
+		    amount = (shoe.getAsJsonObject().get("amount").getAsInt());
+		    initialStorage.put(type, amount);
+		}
+		
+		initialStorageArray = new ShoeStorageInfo[initialStorage.size()];
+		for (String s: initialStorage.keySet()){
+		    initialStorageArray[j]= new ShoeStorageInfo(s, initialStorage.get(s),0);
+		    ++j;
+		}
+		store.load(initialStorageArray);
+	}
 }
