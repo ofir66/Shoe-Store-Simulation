@@ -82,8 +82,10 @@ public class ShoeFactoryService extends MicroService{
      */
      
     protected void initialize(){
-    	try {
-			FileHandler handler = new FileHandler("Log/ShoeFactoryService"+getName()+".txt");
+    	FileHandler handler;
+		
+		try {
+			handler = new FileHandler("Log/ShoeFactoryService"+getName()+".txt");
 			handler.setFormatter(new SimpleFormatter());
 			LOGGER.addHandler(handler);
 		} catch (SecurityException e1) {
@@ -114,25 +116,18 @@ public class ShoeFactoryService extends MicroService{
      
     //Auxiliary method. create shoe at current tick
     private void createShoe(){
-        if (this.fHandleList.size()>0){ // (if the handle list is empty, we won't create anything)
-            ManufacturingOrderRequest request= this.fHandleList.peek(); // we will first look at our requested shoe to create
-            String shoeType= request.getShoeType();
+        ManufacturingOrderRequest request;
+		String shoeType;
+		
+		if (this.fHandleList.size()>0){ // (if the handle list is empty, we won't create anything)
+            request= this.fHandleList.peek(); // we will first look at our requested shoe to create
+            shoeType= request.getShoeType();
             if (this.fCompletedList.get(shoeType)==null){ // if we just received the request 
                 this.fCompletedList.put(shoeType, 1); // then we will define this shoe in our list. that means that we received the request
                 LOGGER.info("tick "+ this.fCurrentTick+ ": "+getName() + " has created one "+ request.getShoeType());
             }
             else if (this.fCompletedList.get(shoeType)!=null && request.getAmountNeeded()-this.fCompletedList.get(shoeType)==0){ // if we created the amount of all this shoe type needed
-                this.fHandleList.poll(); // we will poll out the request, because we our done with it
-                Receipt receipt= new Receipt(this.getName(), "store", shoeType, false, this.fCurrentTick, request.getRequestedTick(), request.getAmountNeeded());
-                this.fCompletedList.remove(shoeType); // and also initializing our shoe completed instances- because the request relates to it was completed, and we now need it initialized for later manufactoring requests for it  
-                LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " has completed manufacturing order request for "+ request.getAmountNeeded()+ " instances of "+ request.getShoeType());
-                this.complete(request, receipt);
-                if (this.fHandleList.size()>0){ // after completing, we will want to handle a new order (if the handle list is empty, we won't create anything)
-                    ManufacturingOrderRequest newRequest= this.fHandleList.peek(); // we will first look at our requested shoe to create
-                    String newShoeType= newRequest.getShoeType();
-                    this.fCompletedList.put(newShoeType, 1); // we will define this shoe in our list. that means that we received the request
-                    LOGGER.info("tick "+ this.fCurrentTick+ ": "+getName() + " has created one "+ newRequest.getShoeType());
-                }    
+                handleCompletedRequest(request, shoeType);    
             }
             else{ // if we handled this shoe before, but haven't finished the request that relates to it
                 this.fCompletedList.replace(shoeType, this.fCompletedList.get(shoeType)+1); // we will create one more instance of that shoe
@@ -140,6 +135,24 @@ public class ShoeFactoryService extends MicroService{
             }
         }
     }
+
+	private void handleCompletedRequest(ManufacturingOrderRequest request, String shoeType) {
+		ManufacturingOrderRequest newRequest;
+		String newShoeType;
+		Receipt receipt;
+		
+		this.fHandleList.poll(); // we will poll out the request, because we are done with it
+		receipt= new Receipt(this.getName(), "store", shoeType, false, this.fCurrentTick, request.getRequestedTick(), request.getAmountNeeded());
+		this.fCompletedList.remove(shoeType); // and also initializing our shoe completed instances- because the request relates to it was completed, and we now need it initialized for later manufactoring requests for it  
+		LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " has completed manufacturing order request for "+ request.getAmountNeeded()+ " instances of "+ request.getShoeType());
+		this.complete(request, receipt);
+		if (this.fHandleList.size()>0){ // after completing, we will want to handle a new order (if the handle list is empty, we won't create anything)
+		    newRequest= this.fHandleList.peek(); // we will first look at our requested shoe to create
+		    newShoeType= newRequest.getShoeType();
+		    this.fCompletedList.put(newShoeType, 1); // we will define this shoe in our list. that means that we received the request
+		    LOGGER.info("tick "+ this.fCurrentTick+ ": "+getName() + " has created one "+ newShoeType);
+		}
+	}
          
      
 }
