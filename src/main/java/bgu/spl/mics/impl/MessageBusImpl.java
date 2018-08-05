@@ -155,40 +155,51 @@ public class MessageBusImpl implements MessageBus {
      * @param m the MicroService we would like to delete references of
      */
     private void deleteReferences(MicroService m){
-        for (Class<? extends Request> mes: this.fSubscribedRequestList.keySet()){ // for each type of request message in it list
-            ConcurrentLinkedQueue<MicroService> subscribedList=this.fSubscribedRequestList.get(mes);  // we will look at it subscribe list
-            if (subscribedList!=null && subscribedList.size()>0 && subscribedList.contains(m)) {
-                AtomicInteger next=this.fRoundRobin.get(mes); // the index of the next MS to handle requests
-                if (this.fRoundRobin.get(mes).intValue()>0){ // if  the next to handle isn't the first element at it
-                    if (m==this.findElementAt(next.intValue(), subscribedList)){ // if m is the next to handle
-                        if (next.intValue()==subscribedList.size()-1 || subscribedList.size()==1){// if m is the last in the list or the only one in the list
-                            next.set(0); // the first element will now be the next to handle
-                            subscribedList.remove(m); // and we will remove m
-                        }
-                        else{ // if there is a MS after m
-                            MicroService nextToHandle= this.findElementAt(next.intValue()+1, subscribedList); // we will save the reference of him
-                            subscribedList.remove(m); // remove m
-                            next.set(this.indexOfElementInList(nextToHandle, subscribedList)); // and set the index of "nextToHandle" in the updated list (after deleting "m" from it) to be the index of "nextToHandle" in the list
-                        }
-                    }
-                    else if (this.indexOfElementInList(m, subscribedList)>next.intValue()) // if the next to handle has an index which is smaller than "m" index
-                        subscribedList.remove(m); // we will just remove m
-                    else { // if the next to handle has an index which is greater than "m" index
-                        next.set(next.intValue()-1); // we will just set the next index to be minus 1
-                        subscribedList.remove(m); // and remove m
-                    }
-                }
-                else // if  the next to handle is the first element at it, we will just remove it
-                    subscribedList.remove(m); // we will just remove m
+    	ConcurrentLinkedQueue<MicroService> subscribedReqList;
+    	ConcurrentLinkedQueue<MicroService> subscribedBroadList;
+    	
+    	for (Class<? extends Request> mes: this.fSubscribedRequestList.keySet()){ // for each type of request message in it list
+    		subscribedReqList=this.fSubscribedRequestList.get(mes);  // we will look at it subscribe list
+            if (subscribedReqList!=null && subscribedReqList.size()>0 && subscribedReqList.contains(m)) {
+                removeServiceFromSubReq(m, mes, subscribedReqList);
             }
         }
        
         for (Class<? extends Broadcast> mes: this.fSubscribedBroadcastList.keySet()){ // for each type of broadcast message
-            ConcurrentLinkedQueue<MicroService> subscribedList=this.fSubscribedBroadcastList.get(mes);  // we will look at it subscribe list
-            if (subscribedList!=null)
-                subscribedList.remove(m); // and if "m" is there- we will delete it
+        	subscribedBroadList=this.fSubscribedBroadcastList.get(mes);  // we will look at it subscribe list
+            if (subscribedBroadList!=null)
+            	subscribedBroadList.remove(m); // and if "m" is there- we will delete it
         }
     }
+
+	private void removeServiceFromSubReq(MicroService m, Class<? extends Request> mes,
+			ConcurrentLinkedQueue<MicroService> subscribedList) {
+		
+		AtomicInteger next=this.fRoundRobin.get(mes); // the index of the next MS to handle requests
+		
+		if (this.fRoundRobin.get(mes).intValue()>0){ // if  the next to handle isn't the first element at it
+		    if (m==this.findElementAt(next.intValue(), subscribedList)){ // if m is the next to handle
+		        if (next.intValue()==subscribedList.size()-1 || subscribedList.size()==1){// if m is the last in the list or the only one in the list
+		            next.set(0); // the first element will now be the next to handle
+		            subscribedList.remove(m); // and we will remove m
+		        }
+		        else{ // if there is a MS after m
+		            MicroService nextToHandle= this.findElementAt(next.intValue()+1,
+		            							subscribedList); // we will save the reference of him
+		            subscribedList.remove(m); // remove m
+		            next.set(this.indexOfElementInList(nextToHandle, subscribedList)); // and set the index of "nextToHandle" in the updated list (after deleting "m" from it) to be the index of "nextToHandle" in the list
+		        }
+		    }
+		    else if (this.indexOfElementInList(m, subscribedList)>next.intValue()) // if the next to handle has an index which is smaller than "m" index
+		        subscribedList.remove(m); // we will just remove m
+		    else { // if the next to handle has an index which is greater than "m" index
+		        next.set(next.intValue()-1); // we will just set the next index to be minus 1
+		        subscribedList.remove(m); // and remove m
+		    }
+		}
+		else // if  the next to handle is the first element at it, we will just remove it
+		    subscribedList.remove(m); // we will just remove m
+	}
      
      
     /**
@@ -200,6 +211,7 @@ public class MessageBusImpl implements MessageBus {
      */
     private MicroService findElementAt(int j, ConcurrentLinkedQueue<MicroService> subscribedList){
         Iterator<MicroService> k= subscribedList.iterator(); // we will iterate over the subscribed list until we find it
+        
         if (!k.hasNext()) // if at start we don't have next
             return null;
         for (int i=0; i<j; ++i){ // we will get here the j-1 element. the j element will be returned at the last line of the method
@@ -209,6 +221,7 @@ public class MessageBusImpl implements MessageBus {
         }
         if (!k.hasNext()) // if we have only j-1 elements
             return null;
+        
         return k.next();
     }
      
@@ -222,12 +235,15 @@ public class MessageBusImpl implements MessageBus {
     private int indexOfElementInList(MicroService m, ConcurrentLinkedQueue<MicroService> subscribedList){
         int index=-1;
         Iterator<MicroService> i= subscribedList.iterator(); // we will iterate over the subscribed list until we find it
+        MicroService next;
+        
         while (i.hasNext()){
             index++;
-            MicroService next=i.next();
+            next=i.next();
             if (m==next)
                 break;
         }
+        
         return index;
     }
      
@@ -248,16 +264,19 @@ public class MessageBusImpl implements MessageBus {
      *                              to became available.
      */
     public Message awaitMessage(MicroService m) throws InterruptedException{
-        if(!isRegistered(m))
+    	ConcurrentLinkedQueue<Message> q;
+    	
+    	if(!isRegistered(m))
             throw new IllegalStateException(m.getName()+" can't wait for messages if it is not registered");
-        ConcurrentLinkedQueue<Message> q=this.fMicroServices.get(m);
+        
+    	q=this.fMicroServices.get(m);
         while (q.isEmpty()){
             synchronized(this){
                this.wait(); 
             }
         }   
-        Message message=q.poll();
-        return message;
+
+        return q.poll();
     }
      
 
@@ -266,6 +285,7 @@ public class MessageBusImpl implements MessageBus {
     private ConcurrentLinkedQueue<MicroService> subscribeListOfRequestType(Class<? extends Request> type){
         boolean isFound=false;
         ConcurrentLinkedQueue<MicroService> subscribedList=null;
+        
         for (Class<? extends Request> mes: this.fSubscribedRequestList.keySet()){  // we will look for the message in our list
             if (mes.getName().compareTo(type.getName())==0){ // if we found the message
                 isFound=true;
@@ -275,6 +295,7 @@ public class MessageBusImpl implements MessageBus {
                 break; // and then break the loop, because we already found the message and handled the case
             }
         }
+        
         if (!isFound){ // if we didn't find the message in the list
             subscribedList=new ConcurrentLinkedQueue<MicroService>(); // we will create new list for it, and add her to the list
             this.fSubscribedRequestList.put(type, subscribedList);
@@ -282,6 +303,7 @@ public class MessageBusImpl implements MessageBus {
         }
         if (subscribedList==null)
             throw new RuntimeException("illegal situation at subscribeListOfRequestType method");
+        
         return subscribedList;
     }
      
@@ -289,6 +311,7 @@ public class MessageBusImpl implements MessageBus {
     private ConcurrentLinkedQueue<MicroService> subscribeListOfBroadcastType(Class<? extends Broadcast> type){
         boolean isFound=false;
         ConcurrentLinkedQueue<MicroService> subscribedList=null;
+        
         for (Class<? extends Broadcast> mes: this.fSubscribedBroadcastList.keySet()){  
             if (mes.getName().compareTo(type.getName())==0){ 
                 isFound=true;
@@ -297,12 +320,14 @@ public class MessageBusImpl implements MessageBus {
                     subscribedList=new ConcurrentLinkedQueue<MicroService>();     
             }
         }
+        
         if (!isFound){ 
             subscribedList=new ConcurrentLinkedQueue<MicroService>(); 
             this.fSubscribedBroadcastList.put(type, subscribedList);
         }
         if (subscribedList==null)
             throw new RuntimeException("addMessageIfAbsent has returned null- illegal.");
+        
         return subscribedList;
     }
  
@@ -313,9 +338,11 @@ public class MessageBusImpl implements MessageBus {
      * @param m    the subscribing MicroService
      */
     public void subscribeRequest(Class<? extends Request<?>> type, MicroService m){ 
-        synchronized(this.fLockSubscribeRequest){
+    	ConcurrentLinkedQueue<MicroService> subscribedList;
+    	
+    	synchronized(this.fLockSubscribeRequest){
             if (isRegistered(m)){  // if "m" is registered
-                ConcurrentLinkedQueue<MicroService> subscribedList=this.subscribeListOfRequestType(type); // find the subscribed list for "type"
+                subscribedList=this.subscribeListOfRequestType(type); // find the subscribed list for "type"
                 subscribedList.add(m); //and add "m" to it
             }
             else
@@ -332,9 +359,11 @@ public class MessageBusImpl implements MessageBus {
      */
      
     public void subscribeBroadcast(Class<? extends Broadcast> type, MicroService m){
-        synchronized(this.fLockSubscribeBroadcast){
+    	ConcurrentLinkedQueue<MicroService> subscribedList;
+    	
+    	synchronized(this.fLockSubscribeBroadcast){
             if (isRegistered(m)){  // if "m" is registered
-                ConcurrentLinkedQueue<MicroService> subscribedList=this.subscribeListOfBroadcastType(type);
+                subscribedList=this.subscribeListOfBroadcastType(type);
                 subscribedList.add(m);
             }
             else
@@ -352,12 +381,16 @@ public class MessageBusImpl implements MessageBus {
     public void sendBroadcast(Broadcast b){
         Class<? extends Broadcast> bClassRepresentation=b.getClass(); // we will need the class representation for searching in our lists
         ConcurrentLinkedQueue<MicroService> subscribedList=subscribeListOfBroadcastType(bClassRepresentation);
+        ConcurrentLinkedQueue<Message> q;
         Iterator<MicroService> i = subscribedList.iterator();
+        MicroService m;
+        
         while(i.hasNext()){ // we will iterate the micro-services that subscribed to "b"
-          MicroService m= i.next();
+          m= i.next();
           if (!this.isRegistered(m))
               throw new IllegalStateException("A micro-services that is subscribed to a message must be registered");
-          ConcurrentLinkedQueue<Message> q=this.fMicroServices.get(m);
+          
+          q=this.fMicroServices.get(m);
           synchronized(this){
               q.add(b); // and add the message "b" to their queue
               this.notifyAll(); // notify them if their queue was empty till now
@@ -376,35 +409,46 @@ public class MessageBusImpl implements MessageBus {
      *         {@code r.getClass()} and false otherwise.
      */
     public boolean sendRequest(Request<?> r, MicroService requester){
-            if (!this.isRegistered(requester))
-                throw new IllegalStateException(requester.getName()+ " tried to send a request, but he is not registered");
-            this.fmessagesRequests.put(r, requester); // we will update our field (will help us in other method)
-            Class<? extends Request> rClassRepresentation=r.getClass();
-            ConcurrentLinkedQueue<MicroService> subscribedList=subscribeListOfRequestType(rClassRepresentation); // we will find the micro-services that were subscribed to this kind of messages
-            if(subscribedList.size()==0){ // if no one subscribed
-                return false;
+    	Class<? extends Request> rClassRepresentation;
+    	ConcurrentLinkedQueue<MicroService> subscribedList;
+    	ConcurrentLinkedQueue<Message> q;
+    	MicroService m;
+    	
+		if (!this.isRegistered(requester))
+            throw new IllegalStateException(requester.getName()+ " tried to send a request, but he is not registered");
+        
+        this.fmessagesRequests.put(r, requester); // we will update our field (will help us in other method)
+        rClassRepresentation=r.getClass();
+        subscribedList=subscribeListOfRequestType(rClassRepresentation); // we will find the micro-services that were subscribed to this kind of messages
+        if(subscribedList.size()==0){ // if no one subscribed
+            return false;
+        }   
+        else{ // if someone subscribed, we will find the next micro-service to handle the message, in a round-robin fashion
+            m=nextInRoundRobinFashion(subscribedList, rClassRepresentation); // detailed explanation in the Auxiliary function
+            if (!this.isRegistered(m))
+                throw new IllegalStateException("Illegal state- The next to handle a request must be registered");
+            
+            q=this.fMicroServices.get(m);
+            synchronized(this){
+                q.add(r); // and add the message to his queue
+                this.notifyAll(); // and also notify him if his queue was empty till now
             }   
-            else{ // if someone subscribed, we will find the next micro-service to handle the message, in a round-robin fashion
-                MicroService m=nextInRoundRobinFashion(subscribedList, rClassRepresentation); // detailed explanation in the Auxiliary function
-                if (!this.isRegistered(m))
-                    throw new IllegalStateException("Illegal state- The next to handle a request must be registered");
-                ConcurrentLinkedQueue<Message> q=this.fMicroServices.get(m);
-                synchronized(this){
-                    q.add(r); // and add the message to his queue
-                    this.notifyAll(); // and also notify him if his queue was empty till now
-                }   
-                return true;
-            }
+            return true;
+        }
     }
     
     //Auxiliary function. it will find the next MS to handle a request message (in round-robin fashion). after the MS found, we will update the index of the next MS in the queue of that message (in a round robin fashion) that needs to handle a request message 
     private MicroService nextInRoundRobinFashion(ConcurrentLinkedQueue<MicroService> subscribedList, Class <? extends Request> type){
-        synchronized(this.fLockUnregister){
-            AtomicInteger index= this.fRoundRobin.get(type); // we will find the index of the next MS in the subscribeList to handle the message (round-robin fashion)
-            Iterator<MicroService> j= subscribedList.iterator(); // we will iterate over the subscribed list until we find the element in this index
+    	AtomicInteger index;
+    	Iterator<MicroService> j;
+    	
+    	synchronized(this.fLockUnregister){
+            index= this.fRoundRobin.get(type); // we will find the index of the next MS in the subscribeList to handle the message (round-robin fashion)
+            j= subscribedList.iterator(); // we will iterate over the subscribed list until we find the element in this index
             for (int i=0; i<index.intValue(); ++i) // we will get here the [index-1] element. the [index] element will be returned at the last line of the method
                 j.next();
             index.updateAndGet(value-> value+1>subscribedList.size()-1? 0: value+1); // now we need to update the index in round-robin fashion, for the next Request messages (after this one) that we will receive
+            
             return j.next(); 
         }
     }
@@ -425,11 +469,14 @@ public class MessageBusImpl implements MessageBus {
     public  <T> void  complete(Request<T> r, T result){
         Message completedMessage=new RequestCompleted<T>(r,result);
         MicroService microServiceRequested=this.fmessagesRequests.get(r); // first we find the MS that requested the input
+        ConcurrentLinkedQueue<Message> q;
+        
         if (microServiceRequested==null)
             throw new IllegalStateException("illegal state- someone must has sent a request message if we now try to complete it");
         if (!this.isRegistered(microServiceRequested))
         	throw new IllegalStateException("a micro-service will not unregister itself if it has pending requests"); // from the forum of the Assignment: "You can assume that a micro-service will not unregister itself if it has pending requests. "
-	    ConcurrentLinkedQueue<Message> q=this.fMicroServices.get(microServiceRequested); // we will find the MS in our fMicroServices list, and then add the completed message to his queue
+	    
+        q=this.fMicroServices.get(microServiceRequested); // we will find the MS in our fMicroServices list, and then add the completed message to his queue
 	    synchronized(this){
 	        q.add(completedMessage);
 	        this.notifyAll(); // notifying him if his queue is empty till now
