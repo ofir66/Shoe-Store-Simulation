@@ -126,7 +126,9 @@ public abstract class MicroService implements Runnable {
      */
     protected final <T> boolean sendRequest(Request<T> r, Callback<T> onComplete) {
         boolean ans=this.fMessageBus.sendRequest(r, this);
+		
         this.fCallBacksForSent.put(r, onComplete);
+		
         return ans;
     }
  
@@ -182,17 +184,21 @@ public abstract class MicroService implements Runnable {
     @Override
     @SuppressWarnings("unchecked")
     public final void run() {
-            this.fMessageBus.register(this);
+            Message mes;
+			Class<?> key;
+			Request<?> jMes;
+			
+			this.fMessageBus.register(this);
             initialize();
             while (!terminated) {
             	try{
-                    Message mes=this.fMessageBus.awaitMessage(this);
-                    Class<?> key=mes.getClass();
+                    mes=this.fMessageBus.awaitMessage(this);
+                    key=mes.getClass();
                     if (Request.class.isAssignableFrom(key) || Broadcast.class.isAssignableFrom(key)){
                     	this.fCallBacksForHandler.get(key).call(mes);    
                     }
                     if (mes.getClass().getName().compareTo(RequestCompleted.class.getName())==0 ){ 
-                        Request<?> jMes=((RequestCompleted<?>)mes).getCompletedRequest();                         
+                        jMes=((RequestCompleted<?>)mes).getCompletedRequest();                         
                         this.fCallBacksForSent.get(jMes).call(((RequestCompleted<?>)mes).getResult());
                     }   
             	}
@@ -201,7 +207,7 @@ public abstract class MicroService implements Runnable {
             	}
             }
             this.fMessageBus.unregister(this); // unregistering before terminating      
-}
+	}
      
      
 }    
