@@ -36,45 +36,30 @@ public class StoreTest {
     public void testGetInstance() {
         assertEquals(this.store,Store.getInstance());
     }
- 
+	
     @Test
     public void testLoad() {
-        store.load(shoes);
-        String takeResult= this.store.take("brooks adrenalin", false).name();
-        assertEquals("NOT_IN_STOCK",takeResult);
-        takeResult=this.store.take("brooks ghost", false).name();
-        assertEquals("REGULAR_PRICE",takeResult);
-        takeResult=this.store.take("brooks glycerin", false).name();
-        assertEquals("DISCOUNTED_PRICE",takeResult);
-        takeResult=this.store.take("assics nimbus", false).name();
-        assertEquals("DISCOUNTED_PRICE",takeResult);
-        shoes[0]=new ShoeStorageInfo("brooks adrenalin", 0, 0);
-        shoes[1]=new ShoeStorageInfo("brooks ghost", 1, 0);
-        shoes[2]= new ShoeStorageInfo("brooks glycerin", 5, 1);
-        shoes[3]= new ShoeStorageInfo("assics nimbus", 4, 3);
-        store.load(shoes);
+		String takeResult;
+		
+		store.load(shoes);
+		
         takeResult= this.store.take("brooks adrenalin", false).name();
         assertEquals("NOT_IN_STOCK",takeResult);
+		
         takeResult=this.store.take("brooks ghost", false).name();
         assertEquals("REGULAR_PRICE",takeResult);
+		
         takeResult=this.store.take("brooks glycerin", false).name();
         assertEquals("DISCOUNTED_PRICE",takeResult);
+		
         takeResult=this.store.take("assics nimbus", false).name();
-        assertEquals("DISCOUNTED_PRICE",takeResult);
-        shoes[0]=new ShoeStorageInfo("brooks adrenalin", 0, 0);
-        shoes[1]=new ShoeStorageInfo("brooks ghost", 1, 0);
-        shoes[2]= new ShoeStorageInfo("brooks glycerin", 5, 1);
-        shoes[3]= new ShoeStorageInfo("assics nimbus", 4, 3);
-        store.load(shoes);
-    }
+        assertEquals("DISCOUNTED_PRICE",takeResult);		
+	}
  
     @Test
     public void testTake() {
-        shoes[0]=new ShoeStorageInfo("brooks adrenalin", 0, 0);
-        shoes[1]=new ShoeStorageInfo("brooks ghost", 1, 0);
-        shoes[2]= new ShoeStorageInfo("brooks glycerin", 5, 1);
-        shoes[3]= new ShoeStorageInfo("assics nimbus", 4, 3);
         store.load(shoes);
+		
         assertEquals(BuyResult.NOT_ON_DISCOUNT,store.take("brooks adrenalin", true));
         assertEquals(BuyResult.NOT_IN_STOCK,store.take("brooks adrenalin", false));
         assertEquals(BuyResult.NOT_ON_DISCOUNT,store.take("brooks ghost", true));
@@ -88,11 +73,8 @@ public class StoreTest {
  
     @Test
     public void testAdd() {
-        shoes[0]=new ShoeStorageInfo("brooks adrenalin", 0, 0);
-        shoes[1]=new ShoeStorageInfo("brooks ghost", 1, 0);
-        shoes[2]= new ShoeStorageInfo("brooks glycerin", 5, 1);
-        shoes[3]= new ShoeStorageInfo("assics nimbus", 4, 3);
         store.load(shoes);
+		
         store.add("brooks adrenalin", 7);
         assertEquals(7, this.shoes[0].getAmountOnStorage());
         store.add("brooks ghost", 0);
@@ -103,36 +85,23 @@ public class StoreTest {
  
     @Test
     public void testAddDiscount() {
-        shoes[0]=new ShoeStorageInfo("brooks adrenalin", 0, 0);
-        shoes[1]=new ShoeStorageInfo("brooks ghost", 1, 0);
-        shoes[2]= new ShoeStorageInfo("brooks glycerin", 5, 1);
-        shoes[3]= new ShoeStorageInfo("assics nimbus", 4, 3);
-        shoes[4]= new ShoeStorageInfo("assics palo", 5, 3);
         store.load(shoes);
+		
         store.addDiscount("brooks adrenalin", 3);
         assertEquals(0, this.shoes[0].getDiscountedAmount());
+		
         store.add("brooks adrenalin", 7);
         store.addDiscount("brooks adrenalin", 3);
         assertEquals(3, this.shoes[0].getDiscountedAmount());
+		
         store.addDiscount("brooks glycerin", 20);
         assertEquals(5, this.shoes[2].getDiscountedAmount());
+		
         store.addDiscount("assics nimbus", 1);
         assertEquals(4, this.shoes[3].getDiscountedAmount());
+		
         store.addDiscount("assics palo", 3);
         assertEquals(5, this.shoes[4].getDiscountedAmount());
     }
- 
-    @Test
-    // too easy to check- because its' java implementation for add method at ConcurrentLinkedQueue.
-    public void testFile() {
-         
-    }
- 
-    // too easy to check, since we now the receipts list is valid (we only used java implement to file receipts), and we only use System.out.println and iterator implementations of java
-    @Test
-    public void testPrint() {
-         
-    }
- 
  
 }
