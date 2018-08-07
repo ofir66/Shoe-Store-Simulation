@@ -29,11 +29,6 @@ public class MessageBusImplTest {
 		this.m = new ExampleMessageSenderService("test", args);
 	}
 
-	@After
-	public void tearDown() throws Exception {
-
-	}
-
 	@Test
 	public void testGetInstance() {
 		assertEquals(this.messageBusImpl,MessageBusImpl.getInstance());
@@ -41,16 +36,16 @@ public class MessageBusImplTest {
 
 	@Test
 	public void testRegister() {
+		PurchaseOrderRequest req = new PurchaseOrderRequest("sender", null, false, 0, 0);
+		
 		this.messageBusImpl.register(m);
-		assertFalse(this.messageBusImpl.sendRequest(new PurchaseOrderRequest("sender", null, false, 0, 0),m));//test should work because there is no one to handle the request, will fail (give an exception) if m wasn't registered
+		assertFalse(this.messageBusImpl.sendRequest(req,m));//test should work because there is no one to handle the request, will fail (give an exception) if m wasn't registered
 		//would print to the console: "there is no one to handle test request of type: PurchaseOrderRequest"
 	}
 
 	@Test (expected=IllegalStateException.class) // we expect this exception because awaitMessage won't find m in the bus.
 	public void testUnregister() {
-		this.args = new String[]{"broadcast"};
-		this.m = new ExampleMessageSenderService("test", args);
-		this.messageBusImpl.register(m); // we already tested register so we can assume it's good
+		this.messageBusImpl.register(m);
 		this.messageBusImpl.unregister(m);
 		try {
 			assertNotNull(this.messageBusImpl.awaitMessage(m));
@@ -64,19 +59,19 @@ public class MessageBusImplTest {
 	@Test
 	public void testAwaitMessage() {
 		Broadcast mes = new ExampleBroadcast("broadcast");
+		
 		this.messageBusImpl.register(m); // we already tested register so we can assume it's good
-		this.messageBusImpl.subscribeBroadcast(mes.getClass(), m); // m wants to recieve broadcasts
+		this.messageBusImpl.subscribeBroadcast(mes.getClass(), m); // m wants to receive broadcasts
 		this.messageBusImpl.sendBroadcast(mes); // sends a broadcast
 		try {
 			assertNotNull(this.messageBusImpl.awaitMessage(m)); // our broadcast message supposed to return - it's not null!
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 
 	@Test
-	public void testSubscribeRequest() { // if it is subscribed to request it means that when someone sends broadcast it will be notified by awaitMessage
+	public void testSubscribeRequest() { // if x is subscribed to a request, it means that when someone sends broadcast - x will be notified by awaitMessage
 		MicroService handler= new MicroService("handler"){
 			protected void initialize(){
 				this.subscribeRequest(ExampleRequest.class, ExampleRequest -> {
@@ -92,20 +87,17 @@ public class MessageBusImplTest {
 			}
 		};
 		
-		this.messageBusImpl.register(handler);
-		this.messageBusImpl.register(sender);
 		Thread handlerT = new Thread(handler);
 		Thread senderT = new Thread(sender);
 		
+		this.messageBusImpl.register(handler);
+		this.messageBusImpl.register(sender);
 		handlerT.start();
 		try{
 			Thread.sleep(50);
 		}
 		catch (InterruptedException e){}
 		senderT.start();
-		
-		
-		
 	}
 
 	@Test
@@ -124,11 +116,11 @@ public class MessageBusImplTest {
 			}
 		};
 		
-		this.messageBusImpl.register(handler);
-		this.messageBusImpl.register(sender);
 		Thread handlerT = new Thread(handler);
 		Thread senderT = new Thread(sender);
 		
+		this.messageBusImpl.register(handler);
+		this.messageBusImpl.register(sender);
 		handlerT.start();
 		try{
 			Thread.sleep(50);
@@ -153,11 +145,11 @@ public class MessageBusImplTest {
 			}
 		};
 		
-		this.messageBusImpl.register(handler);
-		this.messageBusImpl.register(sender);
 		Thread handlerT = new Thread(handler);
 		Thread senderT = new Thread(sender);
 		
+		this.messageBusImpl.register(handler);
+		this.messageBusImpl.register(sender);
 		handlerT.start();
 		try{
 			Thread.sleep(50);
@@ -173,17 +165,19 @@ public class MessageBusImplTest {
 				assertFalse(this.sendRequest(new PurchaseOrderRequest("sender", null, false, 0, 0), result -> {}));
 			}
 		};
-		this.messageBusImpl.register(sender);
-		Thread senderT = new Thread(sender);
-		senderT.start();
-		
 		MicroService sender2= new MicroService("sender2"){
 			protected void initialize(){
 				assertTrue(this.sendRequest(new ExampleRequest("request"), result -> {}));
 			}
 		};
-		this.messageBusImpl.register(sender2);
+		
+		Thread senderT = new Thread(sender);
 		Thread sender2T = new Thread(sender2);
+		
+		this.messageBusImpl.register(sender);
+		senderT.start();
+		
+		this.messageBusImpl.register(sender2);
 		sender2T.start();
 	}
 	
@@ -206,11 +200,11 @@ public class MessageBusImplTest {
 			}
 		};
 		
-		this.messageBusImpl.register(handler);
-		this.messageBusImpl.register(sender);
 		Thread handlerT = new Thread(handler);
 		Thread senderT = new Thread(sender);
 		
+		this.messageBusImpl.register(handler);
+		this.messageBusImpl.register(sender);
 		handlerT.start();
 		try{
 			Thread.sleep(50);
