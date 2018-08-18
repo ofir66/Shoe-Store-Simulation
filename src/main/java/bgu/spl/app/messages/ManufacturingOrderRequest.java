@@ -4,9 +4,9 @@ import bgu.spl.app.passiveObjects.Receipt;
 import bgu.spl.mics.Request;
 
 /**
- * A request that is sent when the the store manager want that a
+ * A request that is sent when the the store manager decides that a
 shoe factory will manufacture a shoe for the store. Its response type expected to be a Receipt.
-On the case the manufacture was not completed successfully null should be returned as the
+If the manufacture was not completed successfully null will be returned as the
 request result.
  */
 
@@ -29,11 +29,6 @@ public class ManufacturingOrderRequest implements Request<Receipt>{
 	 */
 	private int fRequestedTick;
 	
-    /**
-     * @param senderName name of the sender.
-     * @param amountNeeded the amount needed of this shoe to manufacture.
-     * @param  requestedTick the tick in which the manufacturing request was sent.
-     */
 	
 	public ManufacturingOrderRequest(String senderName, String shoeType, int amountNeeded, int requestedTick) {
         this.fSenderName = senderName;
@@ -43,19 +38,10 @@ public class ManufacturingOrderRequest implements Request<Receipt>{
     }
 	
 	
-    /**
-     * @return the name of the service - the service name is given to it in the
-     *         construction time and is used mainly for debugging purposes.
-     */
-	
     public String getSenderName() {
         return this.fSenderName;
     }
     
-    /**
-     * @return the name of the service - the service name is given to it in the
-     *         construction time and is used mainly for debugging purposes.
-     */
     public String getShoeType(){
     	return this.fShoeType;
     }

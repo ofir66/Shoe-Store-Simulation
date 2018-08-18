@@ -23,20 +23,15 @@ public class Store {
 	 */
 	private final static Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 	/**
-	 * A ConcurrentLinkedQueue of {@link ShoeStorageInfo}. represents the list of shoes in the store
+	 * A ConcurrentLinkedQueue of {@link ShoeStorageInfo}. Represents the list of shoes in the store
 	 */
     private final ConcurrentLinkedQueue<ShoeStorageInfo> fShoesList;
 	/**
-	 * A ConcurrentLinkedQueue of {@link Receipt}. represents the list of shoes in the store
+	 * A ConcurrentLinkedQueue of {@link Receipt}. Represents the list of receipts in the store
 	 */
     private final ConcurrentLinkedQueue<Receipt> fReceiptsList;
 	/**
-	 * An object represents a lock, which locks the methods add, addDiscount and take. this lock is for preventing this case:
-	 * <p>
-	 * A manager might add/add discount to some shoe, and this adding might mean that afterwards the seller need to sell this shoe
-	 * at regular price/discounted price, when he couldn't do this before the adding.
-	 * However, a possible scenario here is that the add/addDiscount method (called by manager) will be finished only after the seller
-	 * sold the shoe (with take method)  
+	 * A lock which is used to synchronize the methods add, addDiscount and take.
 	 */
     private final Object fLockAddAndTake; 
     
@@ -58,10 +53,6 @@ public class Store {
         this.fReceiptsList= new ConcurrentLinkedQueue<Receipt>();
         this.fLockAddAndTake=new Object();
     }
-    
-	/**
-	 * @return the instance of our Store
-	 */
      
     public static Store getInstance() {
          return StoreHolder.instance;
@@ -69,10 +60,8 @@ public class Store {
      
      
 	  /**
-	   * This method will be called in order to initialize the store storage before starting an execution
-		 (by the ShoeStoreRunner). The method will add the items in the given array to
-		 the store.
-	   * @param storage the shoes to load the Store with
+	   * Initializes the store storage
+	   * @param storage the shoes to load the store with
 	  */
     
     public void load(ShoeStorageInfo [] storage){
@@ -82,11 +71,9 @@ public class Store {
     }
      
 	  /**
-	   * This method will attempt to take a single showType from the store. It receives the shoeType to
-		take and a boolean - onlyDiscount which indicates that the caller wish to take the item only if it is
-		in discount. Its result is an enum which his value represent the result of the attempt to take a shoe from the store.
-	   * @param shoeType the shoe we wish to take
-	   * @param onlyDiscount indicates if we want to take the shoe only at discount
+	   * Attempts to take a single shoe from the store.
+	   * @param shoeType the wanted
+	   * @param onlyDiscount indicates if the shoe is wanted only at discount
 	   * @return NOT_IN_STOCK if there were no shoe of this type in stock, NOT_ON_DISCOUNT if {@code onlyDiscount} was true and there are no
 		discounted shoes with the requested type, REGULAR_PRICE if the item was successfully taken, DISCOUNTED_PRICE if the item was successfully taken in a discounted price
 	  */
@@ -95,24 +82,24 @@ public class Store {
         ShoeStorageInfo wantedShoe;
 		
 		synchronized(this.fLockAddAndTake){
-	    	wantedShoe=this.findShoe(shoeType); // first we will find the shoe in our shoes list
+	    	wantedShoe=this.findShoe(shoeType);
 			
-	        if (wantedShoe==null) // if wasn't found
+	        if (wantedShoe==null)
 	            return BuyResult.NOT_IN_STOCK;
-	        else if (wantedShoe.getAmountOnStorage()==0 && !onlyDiscount) // else, we can assume it was found. if it amount=0 and wasn't asked at discount
+	        else if (wantedShoe.getAmountOnStorage()==0 && !onlyDiscount)
 	            return BuyResult.NOT_IN_STOCK;
-	        else if (wantedShoe.getAmountOnStorage()==0 && onlyDiscount) // if it amount=0 and was asked only at discount
+	        else if (wantedShoe.getAmountOnStorage()==0 && onlyDiscount)
 	            return BuyResult.NOT_ON_DISCOUNT;
-	        else if (wantedShoe.getDiscountedAmount()>0){ // else, we can assume it amount>0. if it discountAmount>0
+	        else if (wantedShoe.getDiscountedAmount()>0){
 	            wantedShoe.setAmountOnStorage((wantedShoe.getAmountOnStorage()-1));
 	            wantedShoe.setDiscountedAmount(wantedShoe.getDiscountedAmount()-1);
 	            return BuyResult.DISCOUNTED_PRICE;
 	        }   
-	        else if (wantedShoe.getDiscountedAmount()==0 && onlyDiscount) // if it discountAmount=0 and was asked only at discount
+	        else if (wantedShoe.getDiscountedAmount()==0 && onlyDiscount)
 	            return BuyResult.NOT_ON_DISCOUNT;
-	        else if (wantedShoe.getDiscountedAmount()==0 && !onlyDiscount){ //if it discountAmount=0 and wasn't asked on discount
+	        else if (wantedShoe.getDiscountedAmount()==0 && !onlyDiscount){
 	            wantedShoe.setAmountOnStorage(wantedShoe.getAmountOnStorage()-1);
-	            if (wantedShoe.getDiscountedAmount()>wantedShoe.getAmountOnStorage()){  // that can happen if a restock is being ordered for a customer, and in the time between the restock order to the completion of the restock, the manager put a discount on the shoe (according to forum: the customer will still buy the shoe in regular price in case like that)
+	            if (wantedShoe.getDiscountedAmount()>wantedShoe.getAmountOnStorage()){
 	            	wantedShoe.setDiscountedAmount(wantedShoe.getAmountOnStorage());
 	            }
 	            return BuyResult.REGULAR_PRICE;
@@ -124,14 +111,14 @@ public class Store {
     
     
 	  /**
-	   * adds the given amount to the ShoeStorageInfo of the given {@code shoeType}.
+	   * adds some shoe type units to the store (no discount)
 	   * @param shoeType the shoe to add to the store
 	   * @param amount the amount of {@code shoeType} to add to the store
 	  */ 
     public void add(String shoeType, int amount){ 
     	ShoeStorageInfo foundShoe;
 		
-		synchronized(this.fLockAddAndTake){ // ass described in fLockAddAndTake field
+		synchronized(this.fLockAddAndTake){
 	    	foundShoe=this.findShoe(shoeType);
 	        if (foundShoe==null)
 	            this.fShoesList.add(new ShoeStorageInfo(shoeType,amount,0));
@@ -141,18 +128,18 @@ public class Store {
     }
      
 	  /**
-	   * adds the given amount of {@code shoeType} to the corresponding ShoeStorageInfo’s discountedAmount field.
-	   * @param shoeType the shoe to add discount amount of it to the store
-	   * @param amount the amount of {@code shoeType} to add discount on to the store
+	   * adds some shoe type units to the store with discount
+	   * @param shoeType the shoe to add to the store
+	   * @param amount the amount of {@code shoeType} to add to the store
 	  */ 
     public void addDiscount(String shoeType , int amount){
     	ShoeStorageInfo foundShoe;
 		
-		synchronized(this.fLockAddAndTake){ // ass described in fLockAddAndTake field
+		synchronized(this.fLockAddAndTake){
 	    	foundShoe=this.findShoe(shoeType);
 	        if (foundShoe!=null){
-	            if (foundShoe.getAmountOnStorage()<amount+foundShoe.getDiscountedAmount()) // case we want more discounts that overall quantity
-	                foundShoe.setDiscountedAmount(foundShoe.getAmountOnStorage()); // the discounts number will be the same as the quantity
+	            if (foundShoe.getAmountOnStorage()<amount+foundShoe.getDiscountedAmount())
+	                foundShoe.setDiscountedAmount(foundShoe.getAmountOnStorage());
 	            else
 	                foundShoe.setDiscountedAmount(foundShoe.getDiscountedAmount()+amount);
 	        }
@@ -169,8 +156,10 @@ public class Store {
         this.fReceiptsList.add(receipt);
     }
      
-    //Auxiliary method.  if shoe found => return it. else, return null
-     
+	  /**
+	   * Auxiliary method.  
+	   * If shoe found => return it. Otherwise, return null
+	  */     
     private ShoeStorageInfo findShoe(String shoeType){
         Iterator<ShoeStorageInfo> i= this.fShoesList.iterator();
         ShoeStorageInfo foundShoe=null;
@@ -186,13 +175,13 @@ public class Store {
     }
      
 	  /**
-	   * The method prints stock in the store, and the receipts that were filed to the store
+	   * Prints the stock in the store, and the receipts that were filed to the store
 	  */ 
     public void print(){
     	FileHandler handler;
 		
 		try {
-			handler = new FileHandler("Log/Store.txt"); // create a log file to store the receipts
+			handler = new FileHandler("Log/Store.txt");
 			handler.setFormatter(new SimpleFormatter());
 			LOGGER.addHandler(handler);
 		} catch (SecurityException e1) {

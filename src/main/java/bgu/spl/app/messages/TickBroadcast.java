@@ -3,11 +3,10 @@ package bgu.spl.app.messages;
 import bgu.spl.mics.Broadcast;
 
 /**
- * a broadcast messages that is sent at every passed clock tick
+ * a broadcast message that is sent at every clock tick
  *
  */
 		
-
 public class TickBroadcast implements Broadcast{
 	
 	/**
@@ -23,11 +22,6 @@ public class TickBroadcast implements Broadcast{
 	 */
 	private int fDuration;
 	
-	/**
-	 * the sender name
-	 * @param currentTick the current tick at the clock
-	 * @param duration the duration of the program (termination time)
-	 */
 	
 	public TickBroadcast(String senderId, int currentTick, int duration){
 		this.fSenderId=senderId;
@@ -35,26 +29,15 @@ public class TickBroadcast implements Broadcast{
 		this.fDuration=duration;
 	}
 	
-	/**
-	 * 
-	 * @return the sender name
-	 */
+	
     public String getSenderId() {
         return fSenderId;
     }
     
-    /**
-     * 
-     * @return the current tick at the clock
-     */
     public int getCurrentTick(){
     	return this.fCurrentTick;
     }
     
-    /**
-     * 
-     * @return the duration of the program (termination time)
-     */
     public int getDuration(){
     	return this.fDuration;
     }

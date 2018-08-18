@@ -22,7 +22,7 @@ import bgu.spl.mics.MicroService;
 
 /**
  * 
- * The micro-service that manages the store. Can add discount to shoes (and notify clients about it), and
+ * The micro-service that manages the store. Can add discount to shoes and
  * handle {@link RestockRequest} when needed.
  *
  */
@@ -45,25 +45,19 @@ public class ManagementService extends MicroService{
      */
     private int fDuration;
     /**
-     * Store- the {@link Store} which the manager will add discount to shoes in and handle RestockRequests
+     * Store- the {@link Store} that the manager manages
      */
     private final Store fStore=Store.getInstance();
     /**
      * ConcurrentHashMap of shoes (String), when each shoe is mapped to the amount of sellers requested it so far.
-     * <p>  
-     * when the ManufacturingOrderRequest of this shoe is completed- the the amount of sellers mapped to this shoe will be:
-     * max{0, num of sellers requested this shos minus shoes received by the factory completed the RestockRequest} 
      */
     private final ConcurrentHashMap<String,Integer> fRequestedOrders;
     /**
      * ConcurrentHashMap of shoes (String), when each shoe is mapped to the amount of orders requested by the manager so far.
-     * <p>
-     * when the ManufacturingOrderRequest of this shoe is completed- the amount of orders requested by the manager will be:
-     * num of orders for this shoe sent by the manager minus shoes received by the factory completed the RestockRequest
      */
-    private final ConcurrentHashMap<String,Integer> fSentOrders; // 
+    private final ConcurrentHashMap<String,Integer> fSentOrders;
     /**
-     * ConcurrentHashMap of {@link RestockOrder RestockOrders}, each mapped to the number of sellers need to be notified when an order
+     * ConcurrentHashMap of {@link RestockOrder RestockOrders}, each mapped to the number of sellers that need to be notified when an order
      * relates to the shoe in the (@link RestockOrder} is completed  
      */
     private final ConcurrentHashMap<RestockOrder, Integer> fRequestedSellers; 
@@ -73,27 +67,14 @@ public class ManagementService extends MicroService{
     private int fIdForLastRestockOrder;
     /**
      * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks.
-     * <p>
-     * will be received at this micro-service constructor with the number of services not including the timer.
-     * <p>
-     * will count down at the end of initialize method.
      */
     private CountDownLatch fLatchObject;
     /**
      * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     * <p>
-     * will be received at this micro-service constructor with the number of services including the TimeService.
-     * <p>
-     * will count down at termination.
      */
     private CountDownLatch fLatchObjectForEnd;
     
-    /**
-     * 
-     * @param discountItemsList a list of shoes the manager would like to put a discount on at certain tick
-     * @param latchObject an object for indicating when the {@link TimeService} starts sending ticks.
-     * @param latchObjectForEnd an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     */
+
     public ManagementService(List<DiscountSchedule> discountItemsList, CountDownLatch latchObject, CountDownLatch latchObjectForEnd){
         super("manager");
         this.fDiscountItemsList=discountItemsList;
@@ -105,8 +86,8 @@ public class ManagementService extends MicroService{
         this.fLatchObjectForEnd=latchObjectForEnd;
     }
     /**
-     * via his initialize, the manager will subscribe to tickBroadcast and RestockRequest Messages.
-     * also, will notify about discounts at his discount items list, at specifit tick defined there 
+     * Subscribes the manager to tickBroadcast and RestockRequest Messages.
+     * Also, adds to the manager the responsibility to notify about discounts.
      */
     @Override
     protected void initialize() {
@@ -124,36 +105,36 @@ public class ManagementService extends MicroService{
 		
 		LOGGER.info(this.getName() +" started");
 		
-        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> { // this is how the manager handles TickBroadcast message
-        this.fCurrentTick=tickBroadCast.getCurrentTick(); // he saves the current tick
-        this.fDuration=tickBroadCast.getDuration(); // and duration
-        if (this.fCurrentTick>this.fDuration){ // if got duration=> terminates
+        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> {
+        this.fCurrentTick=tickBroadCast.getCurrentTick();
+        this.fDuration=tickBroadCast.getDuration();
+        if (this.fCurrentTick>this.fDuration){
             this.terminate();
             LOGGER.info(this.getName()+ " terminates");
             this.fLatchObjectForEnd.countDown();
         }    
         else{
-            this.notifyDiscountAtTick();        // and if tick<duration, then notifying a discount in this current tick, if there exists one in that tick
+            this.notifyDiscountAtTick();
         }
         });
-        // now subscribing to RestockRequest, and defining how we handle RestockRequest
-        this.handleRestockRequest();
+        this.subscribeRestockRequest();
+		
         this.fLatchObject.countDown();
     }
      
      
-    // Auxiliary method. will send notify a discount on certain shoe in a certain tick, if it is defined in the DiscountItemsList
+    // Notifies about a discount for all the shoes that are in the DiscountItemsList at the current tick
     private void notifyDiscountAtTick(){
-        LinkedBlockingQueue<DiscountSchedule> itemsToNotyifyDiscountAtCurrentTick=findDiscountsAtCurrentTick(); // here we save the items to notify discount on
+        LinkedBlockingQueue<DiscountSchedule> itemsToNotyifyDiscountAtCurrentTick=findDiscountsAtCurrentTick();
         Iterator<DiscountSchedule> i= itemsToNotyifyDiscountAtCurrentTick.iterator();
 		DiscountSchedule temp;
 		
-        while (i.hasNext()){ // we will iterate all over them (if exist items), and notify discount on them
+        while (i.hasNext()){
             temp=i.next();
             LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+" will now publish a discount on "+temp.getAmount()+ " "+ temp.getShoeType());
             this.fStore.addDiscount(temp.getShoeType(), temp.getAmount());
             NewDiscountBroadcast newDiscountBroadcast= new NewDiscountBroadcast(this.getName(), temp.getShoeType(), temp.getAmount()); 
-            this.sendBroadcast(newDiscountBroadcast); // and then we will notify the clients
+            this.sendBroadcast(newDiscountBroadcast);
         }
     }
      
@@ -169,7 +150,7 @@ public class ManagementService extends MicroService{
         return ans;
     }
      
-    private void handleRestockRequest(){
+    private void subscribeRestockRequest(){
         this.subscribeRequest(RestockRequest.class, restockRequest ->{ // this is how the manager handle RestockRequest
             String requestedShoe=restockRequest.getShoeNeeded();
 			int amountNeeded;
@@ -239,7 +220,7 @@ public class ManagementService extends MicroService{
     
     // Auxiliary method. 
     // if restock fails, we complete all requested sellers with "false", and also updating our relevant fields
-    // just like we did at handleRestockRequest method (in the case when the Receipt!=null)
+    // just like we did at subscribeRestockRequest method (in the case when the Receipt!=null)
     private void restockFails(String requestedShoe, RestockOrder restockOrder, ManufacturingOrderRequest manufacturingOrderRequest){
         this.fSentOrders.put(requestedShoe, this.fSentOrders.get(requestedShoe)-manufacturingOrderRequest.getAmountNeeded());
         if (this.fRequestedOrders.getOrDefault(requestedShoe, 0)-manufacturingOrderRequest.getAmountNeeded()<0) 

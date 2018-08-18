@@ -5,21 +5,21 @@ import bgu.spl.mics.Request;
 
 /**
  * a request that is sent when the a store client wish to buy a shoe.
-Its response type expected to be a Receipt.  On the case the purchase was not completed
-successfully null should be returned as the request result
+Its response type expected to be a Receipt.  
+In the case the purchase was not completed successfully null will be returned as the request result.
  */
 public class PurchaseOrderRequest implements Request<Receipt>{
 	
 	/**
-	 * String- name of the sender of the request
+	 * String- name of the sender
 	 */
 	private String fSenderName; 
 	/**
-	 * String- name of the shoe requeted in this request
+	 * String- name of the shoe requested
 	 */
 	private String fShoeRequested;
 	/**
-	 * boolean- indicates if the sender wants the shoe in the message only on discount
+	 * boolean- indicates if the sender wants the shoe in the message only at discount
 	 */
 	private boolean fDiscount;
 	/**
@@ -31,13 +31,6 @@ public class PurchaseOrderRequest implements Request<Receipt>{
 	 */
 	private int fAmountWanted;
 	
-    /**
-     * @param senderName name of the sender.
-     * @param shoeRequested the shoe that the sender wants to buy
-     * @param discount indicates if the sender wants the shoe in the message only on discount
-     * @param requestTick the tick in which the customer requested the shoe
-     * @param the amount wanted by the sender
-     */
 	
 	public PurchaseOrderRequest(String senderName, String shoeRequested, boolean discount, int requestTick, int amountWanted) {
         this.fSenderName = senderName;
@@ -48,39 +41,22 @@ public class PurchaseOrderRequest implements Request<Receipt>{
     }
 	
 	
-    /**
-     * @return the sender of this message
-     */
-	
     public String getSenderName() {
         return fSenderName;
     }
     
-    /**
-     * @return the shoe requested by the sender
-     */
     public String getShoeRequested() {
         return this.fShoeRequested;
     }
     
-    /**
-     * @return true if the customer wants tu buy this shoe only at discount, false otherwise
-     */
     public boolean getDiscount(){
     	return this.fDiscount;
     }
-    
-    /**
-     * @return the tick in which the customer requested the shoe
-     */
     
     public int getRequestTick(){
     	return this.fRequestTick;
     }
     
-    /**
-     * @return the amount wanted by the sender 
-     */
     public int getAmountWanted(){
     	return this.fAmountWanted;
     }
