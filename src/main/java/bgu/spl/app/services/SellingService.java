@@ -16,8 +16,8 @@ import bgu.spl.mics.MicroService;
 
 /**
  * 
- * A service which handles {@link PurchaseOrderRequest purchase order requests}. if the amount asked
- * in the request isn't in the stock, the seller will send a {@link RestockRequest}
+ * A service which handles {@link PurchaseOrderRequest purchase order requests}. 
+ * If the amount asked in the PurchaseOrderRequest isn't in the stock, the seller will send a {@link RestockRequest}
  *
  */
 
@@ -37,37 +37,24 @@ public class SellingService extends MicroService{
      */
     private int fDuration;
     /**
-     * int- the id of this seller (each seller has different id)
+     * int- the id of this seller
      */
     private int fId;
     /**
-     * Store- the {@link Store} that seller sells items or send restock requests
+     * Store- the {@link Store} that the seller work at
      */
     private final Store fStore=Store.getInstance();
     /**
      * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks.
-     * <p>
-     * will be received at this micro-service constructor with the number of services not including the timer.
-     * <p>
-     * will count down at the end of initialize method.
+	 * It happens when all services besides of the TimeService finish their initialization.
      */
     private CountDownLatch fLatchObject;
     /**
      * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     * <p>
-     * will be received at this micro-service constructor with the number of services including the TimeService.
-     * <p>
-     * will count down at termination.
+	 * It happens when all services terminate.
      */
     private CountDownLatch fLatchObjectForEnd;
      
-    /**
-     * 
-     * @param name the name of the service
-     * @param id the id of the service
-     * @param latchObject an object for indicating when the {@link TimeService} starts sending ticks.
-     * @param latchObjectForEnd an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     */
      
     public SellingService(String name, int id, CountDownLatch latchObject, CountDownLatch latchObjectForEnd){
         super(name); 
@@ -77,8 +64,7 @@ public class SellingService extends MicroService{
     }
      
    /**
-    * via his initialize, the seller will subscribe to TickBroadcast and PurchaseOrderRequests messages. 
-    * He will also send restock requests if needed 
+    * Subscribes the seller to TickBroadcast and PurchaseOrderRequests messages.
     */
      
     @Override
@@ -95,8 +81,8 @@ public class SellingService extends MicroService{
 			LOGGER.severe(e1.getMessage());
 		}
 		LOGGER.info(this.getName() +" started");
-        //the seller subscribe to TickBroadcast, for knowing the current tick
-        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> { // that's how the seller handles TickBroadcast message
+		
+        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> {
             this.fCurrentTick=tickBroadCast.getCurrentTick();
             this.fDuration=tickBroadCast.getDuration();
             if (this.fCurrentTick>this.fDuration){
@@ -105,31 +91,29 @@ public class SellingService extends MicroService{
                 this.fLatchObjectForEnd.countDown();
             }    
         });
-        // now the seller subscribe to PurchaseOrderRequest, for handling customers purchases
-        this.handlePurchaseOrderRequest();
-        // now we will subscribe to "NewDiscountBroadcast", for knowing if the manager gave a discount on some shoe
+        this.subscribePurchaseOrderRequest();
+
         this.fLatchObject.countDown();
     }
      
-    //Auxiliary method. will subscribe the service to PurchaseOrderRequest messages, and define how to handle them on callBack
-    private void handlePurchaseOrderRequest(){
-        this.subscribeRequest(PurchaseOrderRequest.class, req -> { // now we will define how selling-service handle this request
+    private void subscribePurchaseOrderRequest(){
+        this.subscribeRequest(PurchaseOrderRequest.class, req -> {
         	String wantedShoe;
         	boolean discount;
         	String takeResult;
         	
         	LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " will try to take care of "+ req.getSenderName()+ " request of "+ req.getShoeRequested());
-            wantedShoe=req.getShoeRequested(); // we will save the wanted shoe
-            discount=req.getDiscount(); // check if the customer wanted to buy it only at discount
-            takeResult=this.fStore.take(wantedShoe, discount).name(); // and try to find it in the store
+            wantedShoe=req.getShoeRequested();
+            discount=req.getDiscount(); // check if the customer wanted to buy the shoe only at discount
+            takeResult=this.fStore.take(wantedShoe, discount).name();
             
-            if (takeResult.compareTo("REGULAR_PRICE")==0){ // if we found this shoe, and the customer didn't care about discount
+            if (takeResult.compareTo("REGULAR_PRICE")==0){
                 handleRegularPriceRequest(req);
             }
-            if (takeResult.compareTo("DISCOUNTED_PRICE")==0){ // if we found this shoe on discounted price (regardless to the customer wish for discount)
+            if (takeResult.compareTo("DISCOUNTED_PRICE")==0){
                 handleDiscountPriceRequest(req);
             }
-            if (takeResult.compareTo("NOT_IN_STOCK")==0){ // if we didn't find this shoe, and the customer didn't care about discount, we will send a restock request to the manager- and then complete the request
+            if (takeResult.compareTo("NOT_IN_STOCK")==0){
             	handleNotInStockRequest(req, wantedShoe);
             }
             if (takeResult.compareTo("NOT_ON_DISCOUNT")==0){
@@ -144,9 +128,9 @@ public class SellingService extends MicroService{
 		
 		LOGGER.info("tick "+ this.fCurrentTick+ ": "+"No shoes from kind: "+wantedShoe+" left in stock for "+ req.getSenderName()+ ". calling for restock. you will receive a receipt only if the restock request succeed");
 		restockRequest= new RestockRequest(this.fId, wantedShoe, req.getAmountWanted(), req);
-		success=this.sendRequest(restockRequest, v -> { // we will now define that is the wanted result of our restock request
-		        if (!v) // if the manager returned "false" to our restock request
-		            complete(req,null); // we will return the result "null" tp the customer
+		success=this.sendRequest(restockRequest, v -> { // v is a boolean which indicates the restockRequest answer
+		        if (!v) // if the manager returned "false" to the restock request
+		            complete(req,null); // return the result "null" to the customer
 		        else{ // if the restock succeed
 		            handleRegularPriceRequest(req);
 		        }
@@ -161,8 +145,6 @@ public class SellingService extends MicroService{
 		Receipt receipt= new Receipt(this.getName(), req.getSenderName(), req.getShoeRequested(), 
 				true, this.fCurrentTick, req.getRequestTick(),req.getAmountWanted());
 		
-		// note: if a client bought a shoe with discount, we will mention it by two prints:
-		// that he bought it with discount, and successfully bought it (in complete method)
 		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+req.getSenderName()+ " will buy one "+ req.getShoeRequested()+ " with discount");
 		this.fStore.file(receipt);
 		complete(req,receipt);

@@ -67,10 +67,12 @@ public class ManagementService extends MicroService{
     private int fIdForLastRestockOrder;
     /**
      * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks.
+	 * It happens when all services besides of the TimeService finish their initialization.
      */
     private CountDownLatch fLatchObject;
     /**
      * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
+	 * It happens when all services terminate.
      */
     private CountDownLatch fLatchObjectForEnd;
     
@@ -86,8 +88,8 @@ public class ManagementService extends MicroService{
         this.fLatchObjectForEnd=latchObjectForEnd;
     }
     /**
-     * Subscribes the manager to tickBroadcast and RestockRequest Messages.
-     * Also, adds to the manager the responsibility to notify about discounts.
+     * Subscribes the manager to tickBroadcast and RestockRequest messages.
+     * As a callback to tickBroadcast, the manager will notify about discounts at the relevant ticks	 
      */
     @Override
     protected void initialize() {
@@ -138,11 +140,11 @@ public class ManagementService extends MicroService{
         }
     }
      
-    // Auxiliary method. we will return on the items in our current tick at the DiscountItemsList
+    // Returns items in the DiscountItemsList at the current tick
     private LinkedBlockingQueue<DiscountSchedule> findDiscountsAtCurrentTick(){
         LinkedBlockingQueue<DiscountSchedule> ans=new LinkedBlockingQueue<DiscountSchedule>();
 		
-        for (int i=0; i<this.fDiscountItemsList.size(); ++i){ // search in the list, and find items that correspond to the current tick
+        for (int i=0; i<this.fDiscountItemsList.size(); ++i){
             if (this.fDiscountItemsList.get(i).getTick()==this.fCurrentTick)
                 ans.add(this.fDiscountItemsList.get(i));
         }
@@ -151,21 +153,21 @@ public class ManagementService extends MicroService{
     }
      
     private void subscribeRestockRequest(){
-        this.subscribeRequest(RestockRequest.class, restockRequest ->{ // this is how the manager handle RestockRequest
+        this.subscribeRequest(RestockRequest.class, restockRequest ->{
             String requestedShoe=restockRequest.getShoeNeeded();
 			int amountNeeded;
 			
-            if (this.fStore.take(requestedShoe, false).name().compareTo("REGULAR_PRICE")==0){ // if there is a shoe in a store (the seller didn't notice it)
-            	this.complete(restockRequest, true); // we can complete this request immediately 
+            if (this.fStore.take(requestedShoe, false).name().compareTo("REGULAR_PRICE")==0){ // if the requested shoe is in the store
+            	this.complete(restockRequest, true); // manager can complete this request immediately 
             }
             else{
-	            this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)+restockRequest.getAmountNeeded()); // we will update the request orders
-	            amountNeeded= this.fRequestedOrders.getOrDefault(requestedShoe, 0)-this.fSentOrders.getOrDefault(requestedShoe, 0); // will find the number of shoes we now need to order
-	            if (amountNeeded>0){ // that means we need to order some
+	            this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)+restockRequest.getAmountNeeded());
+	            amountNeeded= this.fRequestedOrders.getOrDefault(requestedShoe, 0)-this.fSentOrders.getOrDefault(requestedShoe, 0); // find the number of shoes that the manager needs to order
+	            if (amountNeeded>0){
 					orderShoes(restockRequest, requestedShoe);
 	            }
-	            else { //case we have ordered enough of this shoe for someone else
-	            	increaseExistingOrder(restockRequest.getShoeNeeded(), restockRequest);
+	            else { // ordered enough units of this shoe for someone else
+	            	addRequestedSeller(restockRequest.getShoeNeeded(), restockRequest);
 	            }
             }    
         });
@@ -177,26 +179,26 @@ public class ManagementService extends MicroService{
 		ManufacturingOrderRequest manufacturingOrderRequest;
 		boolean success;
 		
-		this.fIdForLastRestockOrder++; // the manager will create new ManufacturingOrderRequest, but before that- create new RestockOrder for knowing which requests to complete when ManufacturingOrderRequest is done. we will need a new id for this order
+		this.fIdForLastRestockOrder++;
 		restockRequestsList= new ConcurrentLinkedQueue<RestockRequest>();
-		restockRequestsList.add(restockRequest); // a new restock order will be created with the restock request for it
+		restockRequestsList.add(restockRequest);
 		restockOrder= new RestockOrder(requestedShoe, this.fIdForLastRestockOrder, restockRequestsList);
 		this.fRequestedSellers.put(restockOrder, restockRequest.getAmountNeeded()); // create a new order for this seller
-		manufacturingOrderRequest= new ManufacturingOrderRequest("manager",requestedShoe,(this.fCurrentTick%5)+1, this.fCurrentTick); // define new manufacturingOrderRequest
+		manufacturingOrderRequest= new ManufacturingOrderRequest("manager",requestedShoe,(this.fCurrentTick%5)+1, this.fCurrentTick);
 		LOGGER.info("tick "+ this.fCurrentTick+ ": manager will send a ManufacturingOrderRequest for: " + ((this.fCurrentTick%5)+1) + " items of " + restockRequest.getShoeNeeded());
 		this.fSentOrders.put(requestedShoe, this.fSentOrders.getOrDefault(requestedShoe, 0)+manufacturingOrderRequest.getAmountNeeded()); // update the sent order list
-		success=this.sendRequest(manufacturingOrderRequest, receipt -> { // and send ManufacturingOrderRequest request
+		success=this.sendRequest(manufacturingOrderRequest, receipt -> {
 			if (receipt!=null){ // if ManufacturingOrderRequest succeed
-				this.fStore.add(requestedShoe, receipt.getAmountSold()-this.fRequestedSellers.getOrDefault(restockOrder, 0)); // add the amount needed to store, minus all the sellers that relates to this order at the field fRequestedSellers                     
-				this.fRequestedSellers.remove(restockOrder); // delete this for the list
-				this.fSentOrders.put(requestedShoe, this.fSentOrders.get(requestedShoe)-receipt.getAmountSold()); // update the sent-orders list (because an order was completed)
-				if (this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold()<0) // update the request-orders list (because an order was completed). if we ordered more then needed, we will put 0
+				this.fStore.add(requestedShoe, receipt.getAmountSold()-this.fRequestedSellers.getOrDefault(restockOrder, 0)); // add the amount needed to store, minus all the sellers that relates to this order                    
+				this.fRequestedSellers.remove(restockOrder);
+				this.fSentOrders.put(requestedShoe, this.fSentOrders.get(requestedShoe)-receipt.getAmountSold()); // update the sent orders list (because the order was completed)
+				if (this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold()<0)
 					this.fRequestedOrders.put(requestedShoe, 0);
 				else
-					this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold()); // else- update like we did in fSentOrders
-				this.fStore.file(receipt); // file the receipt      
+					this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold());
+				this.fStore.file(receipt);     
 				LOGGER.info("tick "+ this.fCurrentTick+ ": "+receipt.getAmountSold()+ " items of: "+ restockRequest.getShoeNeeded()+ " were added to the store");
-				this.updateSellers(restockOrder.getRestockRequestsList(), true); // complete the request for all relevant sellers
+				this.updateSellers(restockOrder.getRestockRequestsList(), true);
 			}
 			else{
 				this.restockFails(requestedShoe, restockOrder, manufacturingOrderRequest);
@@ -208,19 +210,17 @@ public class ManagementService extends MicroService{
 		}
 	}
     
-    // Auxiliary method. for a case a seller asked for a restock for a shoe that enough instances of it were ordered
-    private void increaseExistingOrder(String wantedShoe, RestockRequest restockRequest){
-    	for (RestockOrder mes: this.fRequestedSellers.keySet()){ // we will look for this RestockOrder that contains in her RestockRequest queue the input request
-    		if (wantedShoe.compareTo(mes.getShoeType())==0 && this.fIdForLastRestockOrder==mes.getId()){ //case found
-    			mes.getRestockRequestsList().add(restockRequest); // add the restockRequest to the list of requests
-    			this.fRequestedSellers.put(mes, this.fRequestedSellers.getOrDefault(mes, 0)+1); // increase it by one	
+    // Updates fRequestedSellers for relevant restockRequest with one more seller
+    private void addRequestedSeller(String wantedShoe, RestockRequest restockRequest){
+    	for (RestockOrder mes: this.fRequestedSellers.keySet()){
+    		if (wantedShoe.compareTo(mes.getShoeType())==0 && this.fIdForLastRestockOrder==mes.getId()){
+    			mes.getRestockRequestsList().add(restockRequest);
+    			this.fRequestedSellers.put(mes, this.fRequestedSellers.getOrDefault(mes, 0)+1);	
     		}
     	}
     }
     
-    // Auxiliary method. 
-    // if restock fails, we complete all requested sellers with "false", and also updating our relevant fields
-    // just like we did at subscribeRestockRequest method (in the case when the Receipt!=null)
+    // Completes all restock requests with "false"
     private void restockFails(String requestedShoe, RestockOrder restockOrder, ManufacturingOrderRequest manufacturingOrderRequest){
         this.fSentOrders.put(requestedShoe, this.fSentOrders.get(requestedShoe)-manufacturingOrderRequest.getAmountNeeded());
         if (this.fRequestedOrders.getOrDefault(requestedShoe, 0)-manufacturingOrderRequest.getAmountNeeded()<0) 
@@ -231,13 +231,13 @@ public class ManagementService extends MicroService{
         this.updateSellers(restockOrder.getRestockRequestsList(), false);
     }
     
- // Auxiliary method. update relevant sellers with result of some ManufacturingOrderRequest
+ // Updates relevant sellers with the result of some ManufacturingOrderRequest
     private void updateSellers(ConcurrentLinkedQueue<RestockRequest> q, boolean result){
         RestockRequest req;
 		
 		if (q==null || q.size()==0)
-            LOGGER.warning("if we sent a mnaufactoring order, someone must has requested a restock");
-        while (!q.isEmpty()){ // send back the requested to all sellers that sent restock
+            LOGGER.warning("if manager sent a manufacturing order, someone must has requested a restock");
+        while (!q.isEmpty()){
             req=q.poll();
             this.complete(req, result);
         }

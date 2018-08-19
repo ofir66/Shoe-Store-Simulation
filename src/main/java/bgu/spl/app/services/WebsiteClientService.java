@@ -18,7 +18,7 @@ import bgu.spl.mics.MicroService;
 
 /**
  * 
- * This micro-service describes one client connected to the web-site, and tries to purchase shoes.
+ * This micro-service describes one client connected to a website and tries to purchase shoes.
  *
  */
 public class WebsiteClientService extends MicroService{
@@ -28,13 +28,11 @@ public class WebsiteClientService extends MicroService{
 	 */
 	private final static Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 	/**
-	 * contains purchases that the client needs to make
+	 * list of purchases that the client needs to do
 	 */
     private final List<PurchaseSchedule> fPurchaseSchedule; 
     /**
-     * the client's wish list contains name of shoe types that the client.
-     * <p>
-     * will buy only when there is a discount on them. 
+     * list of shoes that the client will buy only at discount. 
      */
     private final Set<String> fWishList;
     /**
@@ -51,29 +49,16 @@ public class WebsiteClientService extends MicroService{
     private int fDuration;
     /**
      * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks.
-     * <p>
-     * will be received at this micro-service constructor with the number of services not including the timer.
-     * <p>
-     * will count down at the end of initialize method.
+	 * It happens when all services besides of the TimeService finish their initialization.
      */
     private CountDownLatch fLatchObject;
     /**
      * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     * <p>
-     * will be received at this micro-service constructor with the number of services including the TimeService.
-     * <p>
-     * will count down at termination.
+	 * It happens when all services terminate.
      */
     private CountDownLatch fLatchObjectForEnd;
     
-    /**
-     * 
-     * @param name the name of the service
-     * @param purchaseSchedule the list of purchases the client need to make
-     * @param wishList the client's wish list (items to buy at discount)
-     * @param latchObject an object for indicating when the {@link TimeService} starts sending ticks.
-     * @param latchObjectForEnd an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     */
+
     public WebsiteClientService(String name, List<PurchaseSchedule> purchaseSchedule, Set<String> wishList, CountDownLatch latchObject, CountDownLatch latchObjectForEnd){
         super(name);
         this.fPurchaseSchedule=purchaseSchedule;
@@ -84,8 +69,8 @@ public class WebsiteClientService extends MicroService{
     }
      
     /**
-     * via his initialize, the client subscribe to tickBroadcast and newDiscountBroadcast messages.
-     * He is also trying to buy items from his purchase list
+     * Subscribes the client to tickBroadcast and newDiscountBroadcast messages.
+     * As a callback to tickBroadcast, the client will try to buy shoes from his purchase list if the list contains shoes to buy in the relevant tick
      */
     protected void initialize(){
     	FileHandler handler;
@@ -99,31 +84,28 @@ public class WebsiteClientService extends MicroService{
 		} catch (IOException e1) {
 			LOGGER.severe(e1.getMessage());
 		}
-		
         LOGGER.info(this.getName() +" started");
-        // subscribing to TickBroadcast messages
-        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> { // this is how the client handles TickBroadcast message
-            this.fCurrentTick=tickBroadCast.getCurrentTick(); // it saves the current tick
-            this.fDuration=tickBroadCast.getDuration(); // and duration
+
+        this.subscribeBroadcast(TickBroadcast.class, tickBroadCast -> {
+            this.fCurrentTick=tickBroadCast.getCurrentTick();
+            this.fDuration=tickBroadCast.getDuration();
             if (this.fCurrentTick>this.fDuration){
                 this.terminate();
                 LOGGER.info(this.getName()+ " terminates");
                 this.fLatchObjectForEnd.countDown();
             }    
             else{
-                this.buyPurchaseScheduleItems();  // and if the tick<duration, then trying to buy items on PurchaseSchedule list (if he has items on that tick)
+                this.buyPurchaseScheduleItems();
             }   
         });
-        // subscribing the client to NewDiscountBroadcast (at callBack: will try to buy items on wish list, if get's a discount on some item there)
-        this.handleNewDiscountBroadcast();
-        //pay attention! we don't need to iterate now on the wish list. this is because the client will need to check it only when he receives a broadcast message for discount (and we handle this case)
+        this.subscribeNewDiscountBroadcast();
+
         this.fLatchObject.countDown();
     }   
      
-    // Auxiliary method. will try to buy items on the PurchaseSchedule, at the current tick
+    // Tries to buy items from the PurchaseSchedule at the current tick
     private void buyPurchaseScheduleItems(){
-        // trying to buy items on PurchaseSchedule list.
-                ConcurrentLinkedQueue<PurchaseSchedule> itemsToPurchaseAtCurrentTick= findPurchasesAtCurrentTick(); // will find all the items to put in this current tick
+                ConcurrentLinkedQueue<PurchaseSchedule> itemsToPurchaseAtCurrentTick= findPurchasesAtCurrentTick(); // find all the items to purchase in this current tick
                 Iterator<PurchaseSchedule> i= itemsToPurchaseAtCurrentTick.iterator();
 				PurchaseOrderRequest purchaseOrderRequest;
 				boolean success;
@@ -149,63 +131,60 @@ public class WebsiteClientService extends MicroService{
     }
 
 	private void handlePurchasedItem(PurchaseSchedule purchaseSchedule, String wantedShoe) {
-		this.fPurchaseSchedule.remove(purchaseSchedule); // we remove it from the client purchase list
-		this.fWishList.remove(wantedShoe); // and also remove it from the wish list, if the shoe exist there
+		this.fPurchaseSchedule.remove(purchaseSchedule);
+		this.fWishList.remove(wantedShoe);
 		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ wantedShoe);
-		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of his shopping list are now empty
+		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){
 		    LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has finished his shopping. now terminates");
-		    this.terminate(); // then the client has finished his shopping
+		    this.terminate();
 		    this.fLatchObjectForEnd.countDown();
 		}
 	}
      
-    // Auxiliary method. 
     private ConcurrentLinkedQueue<PurchaseSchedule> findPurchasesAtCurrentTick(){
         ConcurrentLinkedQueue<PurchaseSchedule> ans=new ConcurrentLinkedQueue<PurchaseSchedule>();
-        for (int i=0; i<this.fPurchaseSchedule.size(); ++i){ // search in the list, and find items that correspond to the current tick
+        for (int i=0; i<this.fPurchaseSchedule.size(); ++i){
             if (this.fPurchaseSchedule.get(i).getTick()==this.fCurrentTick)
                 ans.add(this.fPurchaseSchedule.get(i));
         }
         return ans;
     }
      
-    // Auxiliary method. subscribing to newDiscountBroadcast and defining how to handle it on callBack
-    private void handleNewDiscountBroadcast(){
-    	// subscribing the client to NewDiscountBroadcast (will try to buy items on wish list, if get's a discount on some item there)
-        this.subscribeBroadcast(NewDiscountBroadcast.class, discountBroadcast -> { //this is how the client handle a NewDiscountBroadcast message in his queue
+	// subscribes the client to NewDiscountBroadcast (if a discount is announced to a shoe in his wish list - he will try to buy it) 
+    private void subscribeNewDiscountBroadcast(){
+        this.subscribeBroadcast(NewDiscountBroadcast.class, discountBroadcast -> {
             String discountedShoe=discountBroadcast.getshoeType();
             
-            if (this.fWishList.contains(discountedShoe) && !this.fRequestedFromWishList.contains(discountedShoe) && discountBroadcast.getAomunt()>0){ // if the message declared on a shoe at discount, it appears on this client wish list and the client didn't asked that before
+            if (this.fWishList.contains(discountedShoe) && !this.fRequestedFromWishList.contains(discountedShoe) && discountBroadcast.getAomunt()>0){
                 PurchaseOrderRequest purchaseOrderRequest = new PurchaseOrderRequest(this.getName(), discountedShoe, true, this.fCurrentTick, 1); 
-                // the client will try to buy this item immediately
                 this.fRequestedFromWishList.add(discountedShoe);
                 LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" will try to buy this item from his wish list: " +discountedShoe);
                 
-                boolean success=this.sendRequest(purchaseOrderRequest, Receipt -> { // this is what the client expects to get
+                boolean success=this.sendRequest(purchaseOrderRequest, Receipt -> { // Receipt is what the client expects to get for his purchaseOrderRequest
                     if (Receipt!=null){ // if the item was successfully purchased
                         handlePurchasedAtDiscountItem(discountedShoe);
                     }
                     else{
                         LOGGER.info("tick "+ this.fCurrentTick+ ": "+"purchase of: "+ discountedShoe+ " by "+this.getName()+" was not accepted");
-                        this.fRequestedFromWishList.remove(discountedShoe); // if request fails, we will remove the shoe from requested list, because the client might have a chance to buy it in discount at future
+                        this.fRequestedFromWishList.remove(discountedShoe); // if request fails, remove the shoe from requested list because the client may have a chance to buy it at discount in the future
                     }
                 });
                 if (success)
                     LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" sent a request for: " +discountedShoe+"  and wait for its completion");
                 else{
                     LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" sent a request for: " +discountedShoe+"  but there was no one to handle it");
-                    this.fRequestedFromWishList.remove(discountedShoe); // if request fails, we will remove the shoe from requested list, because the client might have a chance to buy it in discount at future
+                    this.fRequestedFromWishList.remove(discountedShoe);
                 }     
             }
         });
     }
 
 	private void handlePurchasedAtDiscountItem(String discountedShoe) {
-		this.fWishList.remove(discountedShoe); // we remove it from the client wish list
+		this.fWishList.remove(discountedShoe);
 		LOGGER.info("tick "+ this.fCurrentTick+ ": Client "+this.getName()+" has bought successfully "+ discountedShoe);
-		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){ // and if both of it's shopping list are now empty
+		if (this.fPurchaseSchedule.isEmpty() && this.fWishList.isEmpty()){
 		    LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" has finished his shopping. now terminates");
-		    this.terminate(); // then the client has finished his shopping
+		    this.terminate();
 		    this.fLatchObjectForEnd.countDown();
 		}
 	}

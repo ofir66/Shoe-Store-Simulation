@@ -33,21 +33,20 @@ import bgu.spl.app.services.WebsiteClientService;
 import bgu.spl.mics.MicroService;
  
 /**
- * Our main class of the program who runs the whole simulated shoe store we created using the 
- * {@link bgu.spl.mics.impl.MessageBusImpl MessageBus} and different 
+ * Main class of the program which runs the whole simulated shoe store using the 
+ * {@link bgu.spl.mics.impl.MessageBusImpl MessageBus} and 
  * {@link bgu.spl.mics.MicroService MicroServices}.
  * <p>
- * When started, it will recieve as an argument (command line argument) the name of the json input file to 
+ * When started, it will receive as an argument the name of the json input file to 
  * read. The ShoeStoreRunner would read the input file (using {@link com.google.gson.Gson Gson} Library),
- * then add the initial storage to the store and create and start the micro-services. 
+ * then add the initial storage to the store and start the micro-services. 
  * <p>
- * When the current tick number is larger than the duration given to the TimeService in the input file all 
+ * When the current tick number is larger than the duration given to the TimeService in the input file, all 
  * the micro-services would gracefully terminate themselves.
  * <p>
- * After all the micro-services terminate themselves the ShoeStoreRunner will call the Store’s
+ * After all the micro-services terminate themselves, the ShoeStoreRunner will call the Store’s
  * print function and exit.
  * 
- * @author Ofir Hauzer & Liraz Reichenstein
  *
  */
 public class ShoeStoreRunner {
@@ -65,9 +64,9 @@ public class ShoeStoreRunner {
     	Store store = Store.getInstance();
     	CountDownLatch latchForEnding;
     	
-    	(new File("Log")).mkdir(); // Creates a Log folder if doesn't exist
-    	for(File file: new File("Log").listFiles()) file.delete(); // cleans the Log folder so we will only have the latest log files after the program runs
-    	System.setProperty("java.util.logging.SimpleFormatter.format","%4$s: %5$s [%1$tc]%n"); // reorders the log lines to make it easier on the eye
+    	(new File("Log")).mkdir(); // creates a Log folder if doesn't exist
+    	for(File file: new File("Log").listFiles()) file.delete(); // cleans the Log folder from the former run of the program
+    	System.setProperty("java.util.logging.SimpleFormatter.format","%4$s: %5$s [%1$tc]%n"); // reorders the log lines to make it easier to the eye
     	
     	initFileHandler();
     	jreader = openJsonReader(args);
@@ -114,7 +113,7 @@ public class ShoeStoreRunner {
 	}
 
 	private static CountDownLatch parseServices(JsonObject jobject) {
-		JsonObject services = jobject.get("services").getAsJsonObject(); // from now on we read from services!!!
+		JsonObject services = jobject.get("services").getAsJsonObject();
 		JsonObject jTime = services.get("time").getAsJsonObject();
 		JsonObject jManager = services.get("manager").getAsJsonObject();
 		JsonArray jcustomers = services.get("customers").getAsJsonArray();
@@ -231,7 +230,7 @@ public class ShoeStoreRunner {
 		int j=0;
 		ShoeStorageInfo[] initialStorageArray;
 		
-		for (JsonElement shoe : shoes){ // reading the initial storage and creating a map of shoes
+		for (JsonElement shoe : shoes){
 		    type = (shoe.getAsJsonObject().get("shoeType").getAsString());
 		    amount = (shoe.getAsJsonObject().get("amount").getAsInt());
 		    initialStorage.put(type, amount);

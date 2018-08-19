@@ -14,9 +14,8 @@ import bgu.spl.mics.MicroService;
 
 /**
  * 
- * The service which is responsible
-for counting how much clock ticks passed since the beginning of its execution and notifying every
-other micro service (thats interested) about it using the TickBroadcast.
+ * This service is responsible for counting the clock ticks passed since the beginning of its execution.
+ Also responsible for notifying other micro services about the clock ticks passed using the TickBroadcast.
  *
  */
 
@@ -39,33 +38,20 @@ public class TimeService extends MicroService{
      */
     private int fDuration;
     /**
-     * Timer- an object that will help us notify about clock ticks
+     * Timer- an auxiliary object for notifying about clock ticks
      */
     private final Timer fTimer;
     /**
-     * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks
-     * <p>
-     * will be received at this micro-service constructor with the number of services not including the timer
-     * <p>
-     * will wait at the beginning of his initialize method for this latch to go down to 0 (by count down of all other services)
+     * CountDownLatch- an object for indicating when the {@link TimeService} starts sending ticks.
+	 * It happens when all services besides of the TimeService finish their initialization.
      */
     private CountDownLatch fLatchObject;
     /**
-     * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate
-     * <p>
-     * will be received at this micro-service constructor with the number of services including the TimeService
-     *<p>
-     * will count down at termination
+     * CountDownLatch- an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
+	 * It happens when all services terminate.
      */
     private CountDownLatch fLatchObjectForEnd;
      
-    /**
-     * 
-     * @param speed the number of milliseconds each clock tick takes 
-     * @param duration the duration of the program
-     * @param latchObject an object for indicating when the {@link TimeService} starts sending ticks.
-     * @param latchObjectForEnd an object for indicating when the {@link bgu.spl.app.passiveObjects.ShoeStoreRunner ShoeStoreRunner} should terminate.
-     */
      
     public TimeService(int speed, int duration, CountDownLatch latchObject, CountDownLatch latchObjectForEnd){
         super("timerService");
@@ -77,8 +63,7 @@ public class TimeService extends MicroService{
     }
      
     /**
-     * via his initialize, the TimeService first waits for all other services to finish their initialize.
-     * Afterwards, it will notify all other services about the current tick, and when it is time to terminate.
+	 * Waits for all other services to finish their initialization, and afterwards updates those services about passed ticks.
      */
      
     protected void initialize(){
@@ -95,7 +80,7 @@ public class TimeService extends MicroService{
 		}
 		LOGGER.info("timerService started");
         try{
-            this.fLatchObject.await(); // as described in the field documentation 
+            this.fLatchObject.await();
         }
         catch(InterruptedException e){
             e.printStackTrace();
@@ -103,14 +88,14 @@ public class TimeService extends MicroService{
 		
         scheduleTimerTask(); 
 		
-        // subscribing to the message which indicates that all the services terminates, and now the TimeService can terminate as well
+        // subscribe to the message which indicates that all other services terminated, and now the TimeService can terminate as well
         this.subscribeBroadcast(TimeServiceClock.class, timeServiceClock -> {}); 
     }
 
 	private void scheduleTimerTask() {
-		// when current time<=duration => sends tick broadcast to services
-        // when current time= duration+1 => it is the last tick that will be sent, and when the services get it, they will immediately terminate. 
-        // the TimeService will terminate right after them, sending himself the garbage message TimeServiceClock for getting out of awaitMessage method at MicroService Class
+		// when current time <= duration => sends tick broadcast to services
+        // when current time == duration+1 => it is the last tick that will be sent, and when the services get it - they will immediately terminate. 
+		//									  the TimeService will terminate right after them.
         this.fTimer.schedule(new TimerTask(){ 
             public void run(){
                 TickBroadcast tickBroadcast;

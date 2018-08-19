@@ -39,11 +39,10 @@ public class MessageBusImplTest {
 		PurchaseOrderRequest req = new PurchaseOrderRequest("sender", null, false, 0, 0);
 		
 		this.messageBusImpl.register(m);
-		assertFalse(this.messageBusImpl.sendRequest(req,m));//test should work because there is no one to handle the request, will fail (give an exception) if m wasn't registered
-		//would print to the console: "there is no one to handle test request of type: PurchaseOrderRequest"
+		assertFalse(this.messageBusImpl.sendRequest(req,m));// needs to be false since there is no one to handle the request in this case
 	}
 
-	@Test (expected=IllegalStateException.class) // we expect this exception because awaitMessage won't find m in the bus.
+	@Test (expected=IllegalStateException.class) // expect this exception because awaitMessage won't find m in the message bus.
 	public void testUnregister() {
 		this.messageBusImpl.register(m);
 		this.messageBusImpl.unregister(m);
@@ -54,24 +53,23 @@ public class MessageBusImplTest {
 		} 
 	}
 
-	// In unregister we saw that awaitMessage works fine when m is not registered.
-	// We would like to see if it works when m is registered
 	@Test
 	public void testAwaitMessage() {
 		Broadcast mes = new ExampleBroadcast("broadcast");
 		
-		this.messageBusImpl.register(m); // we already tested register so we can assume it's good
-		this.messageBusImpl.subscribeBroadcast(mes.getClass(), m); // m wants to receive broadcasts
-		this.messageBusImpl.sendBroadcast(mes); // sends a broadcast
+		this.messageBusImpl.register(m);
+		this.messageBusImpl.subscribeBroadcast(mes.getClass(), m);
+		this.messageBusImpl.sendBroadcast(mes);
 		try {
-			assertNotNull(this.messageBusImpl.awaitMessage(m)); // our broadcast message supposed to return - it's not null!
+			assertNotNull(this.messageBusImpl.awaitMessage(m));
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 	}
 
+	// check the following case: if a MicroService m is subscribed to a request, it means that when someone sends a request - m will be notified by awaitMessage
 	@Test
-	public void testSubscribeRequest() { // if x is subscribed to a request, it means that when someone sends broadcast - x will be notified by awaitMessage
+	public void testSubscribeRequest() {
 		MicroService handler= new MicroService("handler"){
 			protected void initialize(){
 				this.subscribeRequest(ExampleRequest.class, ExampleRequest -> {

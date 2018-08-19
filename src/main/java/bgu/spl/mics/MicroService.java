@@ -24,25 +24,19 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class MicroService implements Runnable {
  
-	/**
-	 * A field which indicates if a micro-service terminated
-	 */
     private boolean terminated = false;
-	/**
-	 * A field which indicates the name of a micro-service
-	 */
     private final String name;
 	/**
 	 * A {@link MessageBusImpl} instance for message handling (such as subscribing, sending and more...)
 	 */
     private final MessageBus fMessageBus=MessageBusImpl.getInstance(); 
 	/**
-	 * A ConcurrentHashMap of types of messages (broadcast and request), each mapped to the {@link CallBack} which describes the handling of such a message
+	 * A ConcurrentHashMap of message types (broadcast and request), each mapped to the {@link CallBack} which describes the handling of such a message
 	 */
     @SuppressWarnings("rawtypes")
     private final ConcurrentHashMap<Class<?>,Callback> fCallBacksForHandler=new ConcurrentHashMap<Class<?>,Callback>(); 
 	/**
-	 * A ConcurrentHashMap of types of messages (that extend Request Message), each mapped to the {@link CallBack} which describes the handling of a completed message
+	 * A ConcurrentHashMap of message types (that extend Request Message), each mapped to the {@link CallBack} which describes the handling of a completed message
 	 */
     @SuppressWarnings("rawtypes")
     private final ConcurrentHashMap<Request<?>,Callback> fCallBacksForSent=new ConcurrentHashMap<Request<?>,Callback>();
@@ -206,7 +200,7 @@ public abstract class MicroService implements Runnable {
             		e.printStackTrace();
             	}
             }
-            this.fMessageBus.unregister(this); // unregistering before terminating      
+            this.fMessageBus.unregister(this); // unregister before termination      
 	}
      
      
