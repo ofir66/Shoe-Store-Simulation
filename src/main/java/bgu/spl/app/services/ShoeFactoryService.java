@@ -133,9 +133,9 @@ public class ShoeFactoryService extends MicroService{
 		
 		this.fHandleList.poll();
 		receipt= new Receipt(this.getName(), "store", shoeType, false, this.fCurrentTick, request.getRequestedTick(), request.getAmountNeeded());
+		this.complete(request, receipt);
 		this.fCompletedList.remove(shoeType);
 		LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " has completed manufacturing order request for "+ request.getAmountNeeded()+ " instances of "+ request.getShoeType());
-		this.complete(request, receipt);
 		if (this.fHandleList.size()>0){ // when the handle in the request is done, handle a new order (if the handle list is empty, no need to do anything)
 		    newRequest= this.fHandleList.peek();
 		    newShoeType= newRequest.getShoeType();
