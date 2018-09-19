@@ -196,7 +196,7 @@ public class ManagementService extends MicroService{
         this.fRequestedSellers.remove(restockOrder);
         this.fSentOrders.put(requestedShoe, this.fSentOrders.get(requestedShoe)-receipt.getAmountSold()); // update the sent orders list (because the order was completed)
         if (this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold()<0)
-        this.fRequestedOrders.put(requestedShoe, 0);
+          this.fRequestedOrders.put(requestedShoe, 0);
         else
           this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)-receipt.getAmountSold());
         this.fStore.file(receipt);     
