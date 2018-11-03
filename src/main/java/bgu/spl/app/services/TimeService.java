@@ -67,10 +67,8 @@ public class TimeService extends MicroService{
   */
 
   protected void initialize(){
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/TimeService.txt");
+      FileHandler handler = new FileHandler("Log/TimeService.txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -100,8 +98,6 @@ public class TimeService extends MicroService{
     //									  the TimeService will terminate right after them.
     this.fTimer.schedule(new TimerTask(){ 
       public void run(){
-        TickBroadcast tickBroadcast;
-
         fCurrentTime++;
         if (fCurrentTime>fDuration+1){
           terminate();
@@ -112,7 +108,7 @@ public class TimeService extends MicroService{
           fLatchObjectForEnd.countDown();
         }
         else{
-          tickBroadcast=new TickBroadcast(getName(), fCurrentTime, fDuration);
+          TickBroadcast tickBroadcast=new TickBroadcast(getName(), fCurrentTime, fDuration);
           sendBroadcast(tickBroadcast);
         }
       }

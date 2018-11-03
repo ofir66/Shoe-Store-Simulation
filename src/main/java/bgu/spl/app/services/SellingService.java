@@ -69,10 +69,8 @@ public class SellingService extends MicroService{
 
   @Override
   protected void initialize() {
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/SellingService"+fId+".txt");
+      FileHandler handler = new FileHandler("Log/SellingService"+fId+".txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 

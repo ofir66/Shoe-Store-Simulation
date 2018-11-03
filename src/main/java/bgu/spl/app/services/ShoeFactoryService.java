@@ -71,10 +71,8 @@ public class ShoeFactoryService extends MicroService{
   */
 
   protected void initialize(){
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/ShoeFactoryService"+getName()+".txt");
+      FileHandler handler = new FileHandler("Log/ShoeFactoryService"+getName()+".txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -108,12 +106,9 @@ public class ShoeFactoryService extends MicroService{
 
   // Creates a shoe at the current tick
   private void createShoe(){
-    ManufacturingOrderRequest request;
-    String shoeType;
-
     if (this.fHandleList.size()>0){
-      request= this.fHandleList.peek();
-      shoeType= request.getShoeType();
+      ManufacturingOrderRequest request= this.fHandleList.peek();
+      String shoeType= request.getShoeType();
       if (this.fCompletedList.get(shoeType)==null){ // if the factory hasn't started yet to take care of this request
         this.fCompletedList.put(shoeType, 1);
         LOGGER.info("tick "+ this.fCurrentTick+ ": "+getName() + " has created one "+ request.getShoeType());
@@ -129,8 +124,6 @@ public class ShoeFactoryService extends MicroService{
   }
 
   private void handleCompletedRequest(ManufacturingOrderRequest request, String shoeType) {
-    ManufacturingOrderRequest newRequest;
-    String newShoeType;
     Receipt receipt;
 
     this.fHandleList.poll();
@@ -139,8 +132,8 @@ public class ShoeFactoryService extends MicroService{
     this.fCompletedList.remove(shoeType);
     LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+ " has completed manufacturing order request for "+ request.getAmountNeeded()+ " instances of "+ request.getShoeType());
     if (this.fHandleList.size()>0){ // when the handle in the request is done, handle a new order (if the handle list is empty, no need to do anything)
-      newRequest= this.fHandleList.peek();
-      newShoeType= newRequest.getShoeType();
+      ManufacturingOrderRequest newRequest= this.fHandleList.peek();
+      String newShoeType= newRequest.getShoeType();
       this.fCompletedList.put(newShoeType, 1);
       LOGGER.info("tick "+ this.fCurrentTick+ ": "+getName() + " has created one "+ newShoeType);
     }

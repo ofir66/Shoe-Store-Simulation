@@ -177,21 +177,19 @@ public abstract class MicroService implements Runnable {
   @Override
   @SuppressWarnings("unchecked")
   public final void run() {
-    Message mes;
-    Class<?> key;
-    Request<?> jMes;
-
     this.fMessageBus.register(this);
     initialize();
     while (!terminated) {
       try{
-        mes=this.fMessageBus.awaitMessage(this);
-        key=mes.getClass();
+        Message mes=this.fMessageBus.awaitMessage(this);
+        Class<?> key=mes.getClass();
+        
         if (Request.class.isAssignableFrom(key) || Broadcast.class.isAssignableFrom(key)){
           this.fCallBacksForHandler.get(key).call(mes);    
         }
         if (mes.getClass().getName().compareTo(RequestCompleted.class.getName())==0 ){ 
-          jMes=((RequestCompleted<?>)mes).getCompletedRequest();                         
+          Request<?> jMes=((RequestCompleted<?>)mes).getCompletedRequest(); 
+          
           this.fCallBacksForSent.get(jMes).call(((RequestCompleted<?>)mes).getResult());
         }   
       }

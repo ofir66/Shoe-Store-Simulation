@@ -94,10 +94,8 @@ public class ManagementService extends MicroService{
   */
   @Override
   protected void initialize() {
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/ManagementService.txt");
+      FileHandler handler = new FileHandler("Log/ManagementService.txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -132,10 +130,9 @@ public class ManagementService extends MicroService{
   private void notifyDiscountAtTick(){
     LinkedBlockingQueue<DiscountSchedule> itemsToNotyifyDiscountAtCurrentTick=findDiscountsAtCurrentTick();
     Iterator<DiscountSchedule> i= itemsToNotyifyDiscountAtCurrentTick.iterator();
-    DiscountSchedule temp;
 
     while (i.hasNext()){
-      temp=i.next();
+      DiscountSchedule temp=i.next();
       LOGGER.info("tick "+ this.fCurrentTick+ ": "+this.getName()+" will now publish a discount on "+temp.getAmount()+ " "+ temp.getShoeType());
       this.fStore.addDiscount(temp.getShoeType(), temp.getAmount());
       NewDiscountBroadcast newDiscountBroadcast= new NewDiscountBroadcast(this.getName(), temp.getShoeType(), temp.getAmount()); 
@@ -158,12 +155,12 @@ public class ManagementService extends MicroService{
   private void subscribeRestockRequest(){
     this.subscribeRequest(RestockRequest.class, restockRequest ->{
       String requestedShoe=restockRequest.getShoeNeeded();
-      int amountNeeded;
 
       if (this.fStore.take(requestedShoe, false).name().compareTo("REGULAR_PRICE")==0){ // if the requested shoe is in the store
         this.complete(restockRequest, true); // manager can complete this request immediately 
       }
       else{
+        int amountNeeded;
         this.fRequestedOrders.put(requestedShoe, this.fRequestedOrders.getOrDefault(requestedShoe, 0)+restockRequest.getAmountNeeded());
         amountNeeded= this.fRequestedOrders.getOrDefault(requestedShoe, 0)-this.fSentOrders.getOrDefault(requestedShoe, 0); // find the number of shoes that the manager needs to order
         if (amountNeeded>0){
@@ -236,12 +233,10 @@ public class ManagementService extends MicroService{
 
   // Updates relevant sellers with the result of some ManufacturingOrderRequest
   private void updateSellers(ConcurrentLinkedQueue<RestockRequest> q, boolean result){
-    RestockRequest req;
-
     if (q==null || q.size()==0)
       LOGGER.warning("if manager sent a manufacturing order, someone must has requested a restock");
     while (!q.isEmpty()){
-      req=q.poll();
+      RestockRequest req=q.poll();
       this.complete(req, result);
     }
   }

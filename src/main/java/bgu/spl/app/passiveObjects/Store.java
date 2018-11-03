@@ -76,10 +76,8 @@ public class Store {
   */
 
   public BuyResult take(String shoeType, boolean onlyDiscount){
-    ShoeStorageInfo wantedShoe;
-
     synchronized(this.fLockAddAndTake){
-      wantedShoe=this.findShoe(shoeType);
+      ShoeStorageInfo wantedShoe=this.findShoe(shoeType);
 
       if (wantedShoe==null)
         return BuyResult.NOT_IN_STOCK;
@@ -113,10 +111,8 @@ public class Store {
   * @param amount the amount of {@code shoeType} to add to the store
   */ 
   public void add(String shoeType, int amount){ 
-    ShoeStorageInfo foundShoe;
-
     synchronized(this.fLockAddAndTake){
-      foundShoe=this.findShoe(shoeType);
+      ShoeStorageInfo foundShoe=this.findShoe(shoeType);
       if (foundShoe==null)
         this.fShoesList.add(new ShoeStorageInfo(shoeType,amount,0));
       else
@@ -130,10 +126,8 @@ public class Store {
   * @param amount the amount of {@code shoeType} to add to the store
   */ 
   public void addDiscount(String shoeType , int amount){
-    ShoeStorageInfo foundShoe;
-
     synchronized(this.fLockAddAndTake){
-      foundShoe=this.findShoe(shoeType);
+      ShoeStorageInfo foundShoe=this.findShoe(shoeType);
       if (foundShoe!=null){
         if (foundShoe.getAmountOnStorage()<amount+foundShoe.getDiscountedAmount())
           foundShoe.setDiscountedAmount(foundShoe.getAmountOnStorage());
@@ -160,10 +154,9 @@ public class Store {
   private ShoeStorageInfo findShoe(String shoeType){
     Iterator<ShoeStorageInfo> i= this.fShoesList.iterator();
     ShoeStorageInfo foundShoe=null;
-    ShoeStorageInfo temp=null;
 
     while (i.hasNext() && foundShoe==null){
-      temp=i.next();
+      ShoeStorageInfo temp=i.next();
       if (temp.getShoeType().compareTo(shoeType)==0)
         foundShoe=temp;
     }
@@ -175,10 +168,8 @@ public class Store {
   * Prints the stock in the store, and the receipts that were filed to the store
   */ 
   public void print(){
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/Store.txt");
+      FileHandler handler = new FileHandler("Log/Store.txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -195,15 +186,14 @@ public class Store {
 
   private void printShoesStock(){
     Iterator<ShoeStorageInfo> shoesListIterator = this.fShoesList.iterator();
-    ShoeStorageInfo tempShoesList;
-    int i=1;
 
     if (!shoesListIterator.hasNext())
       LOGGER.info("There is no shoe stock!");
     else{
+      int i=1;
       LOGGER.info("Printing shoes stock:");
       while (shoesListIterator.hasNext()){
-        tempShoesList=shoesListIterator.next();
+        ShoeStorageInfo tempShoesList=shoesListIterator.next();
         LOGGER.info("         "+i+". "+tempShoesList.getShoeType()+": "+tempShoesList.getAmountOnStorage()+
                     " items on storage, "+tempShoesList.getDiscountedAmount()+ " of them has a discount");
         i++;
@@ -213,12 +203,12 @@ public class Store {
 
   private void printReceipts(){
     Iterator<Receipt> receiptListIterator = this.fReceiptsList.iterator();
-    int i=1;
 
     if (!receiptListIterator.hasNext())
       LOGGER.info("There are no receipts to print!");
     else{
       LOGGER.info("Printing receipts:");
+      int i=1;
       while (receiptListIterator.hasNext()){
         Receipt tempReceiptList=receiptListIterator.next();
         LOGGER.info("    Receipt " + i + ":\n" +

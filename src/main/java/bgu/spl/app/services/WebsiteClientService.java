@@ -73,10 +73,8 @@ public class WebsiteClientService extends MicroService{
   * As a callback to tickBroadcast, the client will try to buy shoes from his purchase list if the list contains shoes to buy in the relevant tick
   */
   protected void initialize(){
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/WebsiteClientService"+getName()+".txt");
+      FileHandler handler = new FileHandler("Log/WebsiteClientService"+getName()+".txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -109,13 +107,12 @@ public class WebsiteClientService extends MicroService{
   private void buyPurchaseScheduleItems(){
     ConcurrentLinkedQueue<PurchaseSchedule> itemsToPurchaseAtCurrentTick= findPurchasesAtCurrentTick(); // find all the items to purchase in this current tick
     Iterator<PurchaseSchedule> i= itemsToPurchaseAtCurrentTick.iterator();
-    PurchaseOrderRequest purchaseOrderRequest;
-    boolean success;
 
     while (i.hasNext()){
       PurchaseSchedule temp=i.next();
-      purchaseOrderRequest= new PurchaseOrderRequest(this.getName(), temp.getShoeType(), false, this.fCurrentTick, 1);
+      PurchaseOrderRequest purchaseOrderRequest= new PurchaseOrderRequest(this.getName(), temp.getShoeType(), false, this.fCurrentTick, 1);
       String wantedShoe= purchaseOrderRequest.getShoeRequested();
+      boolean success;
 
       LOGGER.info("tick "+ this.fCurrentTick+ ": "+"Client "+this.getName()+" will try to buy this item from his purchase list: " +temp.getShoeType());
       success=this.sendRequest(purchaseOrderRequest, Receipt -> {

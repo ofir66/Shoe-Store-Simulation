@@ -60,9 +60,6 @@ public class ShoeStoreRunner {
     JsonReader jreader;
     JsonParser jparser = new JsonParser();
     JsonElement element;
-    JsonObject jobject;
-    Store store = Store.getInstance();
-    CountDownLatch latchForEnding;
 
     (new File("Log")).mkdir(); // creates a Log folder if doesn't exist
     for(File file: new File("Log").listFiles()) file.delete(); // cleans the Log folder from the former run of the program
@@ -73,9 +70,10 @@ public class ShoeStoreRunner {
     element = jparser.parse(jreader);
 
     if (element.isJsonObject()){
-      jobject = element.getAsJsonObject();
+      JsonObject jobject = element.getAsJsonObject();
+      Store store = Store.getInstance();
       parseInitialStorage(store, jobject);
-      latchForEnding = parseServices(jobject);
+      CountDownLatch latchForEnding = parseServices(jobject);
       try{
         latchForEnding.await();
       }
@@ -87,10 +85,8 @@ public class ShoeStoreRunner {
   }
 
   private static void initFileHandler() {
-    FileHandler handler;
-
     try {
-      handler = new FileHandler("Log/ShoeStoreRunner.txt");
+      FileHandler handler = new FileHandler("Log/ShoeStoreRunner.txt");
       handler.setFormatter(new SimpleFormatter());
       LOGGER.addHandler(handler);
     } 
@@ -158,10 +154,9 @@ public class ShoeStoreRunner {
 
   private static void parseDiscounts(List<DiscountSchedule> dischedule, JsonObject manager) {
     JsonArray discounts = manager.get("discountSchedule").getAsJsonArray();
-    JsonObject jdiscount;
 
     for (JsonElement discount : discounts){
-      jdiscount = discount.getAsJsonObject();
+      JsonObject jdiscount = discount.getAsJsonObject();
       dischedule.add(new DiscountSchedule(jdiscount.get("shoeType").getAsString(),jdiscount.get("tick").getAsInt(),jdiscount.get("amount").getAsInt()));
     }
   }
@@ -173,47 +168,41 @@ public class ShoeStoreRunner {
 
     Thread timerT = new Thread(timer);
     Thread managerT= new Thread(manager);
-    Thread customerT;
-    Thread sellerT;
-    Thread factoryT;
 
     timerT.start();
 
     for (int i = 0; i < customers.size(); i++){
-      customerT= new Thread(customers.get(i));
+      Thread customerT= new Thread(customers.get(i));
       customerT.start();
     }
 
     for (int i = 0; i < listOfSellers.size(); i++){
-      sellerT= new Thread(listOfSellers.get(i));
+      Thread sellerT= new Thread(listOfSellers.get(i));
       sellerT.start();
     }
 
     managerT.start();
 
     for (int i = 0; i < factories; i++){
-      factoryT = new Thread(new ShoeFactoryService("Factory "+ (i+1),latchForInit, latchForEnding));
+      Thread factoryT = new Thread(new ShoeFactoryService("Factory "+ (i+1),latchForInit, latchForEnding));
       factoryT.start();
     }
   }
 
   private static void parseCustomers(List<WebsiteClientService> customers, JsonArray jcustomers, CountDownLatch latchForInit, CountDownLatch latchForEnding) {
-
-    JsonObject jcustomer;
-    JsonObject jpurchase;
-    JsonArray purchaseschedule;
-    JsonArray jwishList;
-    List<PurchaseSchedule> purchaseList;
-    PurchaseSchedule pschedule;
-    Set<String> wishList;
-
     for (JsonElement customer : jcustomers){
-      jcustomer = customer.getAsJsonObject();
+      JsonArray purchaseschedule;
+      JsonObject jcustomer = customer.getAsJsonObject();
+      JsonArray jwishList;
+      List<PurchaseSchedule> purchaseList;
+      Set<String> wishList;
+      
       purchaseList = new ArrayList<PurchaseSchedule>();
       purchaseschedule = jcustomer.get("purchaseSchedule").getAsJsonArray();
       for (JsonElement purchase : purchaseschedule){
-        jpurchase = purchase.getAsJsonObject();
-        pschedule = new PurchaseSchedule(jpurchase.get("shoeType").getAsString(),jpurchase.get("tick").getAsInt());
+        JsonObject jpurchase = purchase.getAsJsonObject();
+        
+        PurchaseSchedule pschedule = new PurchaseSchedule(jpurchase.get("shoeType").getAsString(),jpurchase.get("tick").getAsInt());
         purchaseList.add(pschedule);
       }
       jwishList = jcustomer.get("wishList").getAsJsonArray();
@@ -228,14 +217,12 @@ public class ShoeStoreRunner {
   private static void parseInitialStorage(Store store, JsonObject jobject) {
     HashMap<String,Integer> initialStorage = new HashMap<String,Integer>();
     JsonArray shoes = jobject.get("initialStorage").getAsJsonArray();
-    String type;
-    int amount;
     int j=0;
     ShoeStorageInfo[] initialStorageArray;
 
     for (JsonElement shoe : shoes){
-      type = (shoe.getAsJsonObject().get("shoeType").getAsString());
-      amount = (shoe.getAsJsonObject().get("amount").getAsInt());
+      String type = (shoe.getAsJsonObject().get("shoeType").getAsString());
+      int amount = (shoe.getAsJsonObject().get("amount").getAsInt());
       initialStorage.put(type, amount);
     }
 
